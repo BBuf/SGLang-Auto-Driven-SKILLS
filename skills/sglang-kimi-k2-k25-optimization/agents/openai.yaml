@@ -1,0 +1,4 @@
+interface:
+  display_name: "SGLang Kimi K2/K2.5 Optimization"
+  short_description: "PR-backed Kimi playbook and reusable MoE/VLM optimization ladder"
+  default_prompt: "Optimize or debug moonshotai/Kimi-K2 or Kimi-K2.5 in SGLang, or reuse the Kimi-derived optimization ladder for a structurally similar sparse-MoE or wrapper-heavy multimodal model."
