@@ -385,3 +385,283 @@ def apply_transforms(
                 for value in rewritten_imports
             ]
     return rewritten_argv, rewritten_imports
+
+
+def _finding(rule: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": rule["id"],
+        "category": rule["category"],
+        "severity": rule["severity"],
+        "title": rule["title"],
+        "source_url": rule["source_url"],
+        "summary": rule["summary"],
+        "transforms": rule.get("transforms", []),
+        "canaries": rule.get("canaries", []),
+        "rollback": rule["rollback"],
+    }
+
+
+def _coverage_gaps(
+    profile: dict[str, Any],
+    applicable_rules: list[dict[str, Any]],
+) -> list[str]:
+    covered_features = {
+        predicate["value"]
+        for rule in applicable_rules
+        for predicate in rule["match"]["all"]
+        if predicate["kind"] == "feature"
+    }
+    return sorted(set(profile.get("features", [])) - covered_features)
+
+
+def audit(
+    profiles_document: dict[str, Any],
+    rules_document: dict[str, Any],
+) -> dict[str, Any]:
+    validate_profiles(profiles_document)
+    validate_rules(rules_document)
+    audit_contract = profiles_document["audit"]
+    current = audit_contract["current_version"]
+    target = audit_contract["target_version"]
+    base_canaries = set(audit_contract.get("required_canaries", []))
+    applicable_rules = [
+        rule
+        for rule in rules_document["rules"]
+        if rule_applies(rule, current, target)
+    ]
+
+    profile_results: list[dict[str, Any]] = []
+    for profile in sorted(profiles_document["profiles"], key=lambda item: item["id"]):
+        matched_rules = [
+            rule for rule in applicable_rules if rule_matches(rule, profile)
+        ]
+        findings = [_finding(rule) for rule in matched_rules]
+        transforms = [
+            transform
+            for rule in matched_rules
+            for transform in rule.get("transforms", [])
+        ]
+        transform_error: str | None = None
+        try:
+            proposed_argv, proposed_imports = apply_transforms(
+                profile["argv"],
+                profile.get("imports", []),
+                transforms,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            proposed_argv = list(profile["argv"])
+            proposed_imports = list(profile.get("imports", []))
+            transform_error = str(exc)
+
+        required_canaries = set(base_canaries)
+        for rule in matched_rules:
+            required_canaries.update(rule.get("canaries", []))
+        canary_results = profile.get("canary_results", {})
+        missing_or_failing = sorted(
+            canary
+            for canary in required_canaries
+            if canary_results.get(canary) != "pass"
+        )
+
+        severities = {rule["severity"] for rule in matched_rules}
+        if transform_error or "blocker" in severities:
+            verdict = "NO_GO"
+        elif (
+            severities & {"required", "behavior", "risk", "dependency"}
+            or missing_or_failing
+        ):
+            verdict = "CONDITIONAL_GO"
+        else:
+            verdict = "GO"
+
+        profile_results.append(
+            {
+                "id": profile["id"],
+                "verdict": verdict,
+                "original_argv": profile["argv"],
+                "proposed_argv": proposed_argv,
+                "original_imports": profile.get("imports", []),
+                "proposed_imports": proposed_imports,
+                "findings": findings,
+                "required_canaries": sorted(required_canaries),
+                "canary_results": canary_results,
+                "missing_or_failing_canaries": missing_or_failing,
+                "transform_error": transform_error,
+                "coverage_gaps": _coverage_gaps(profile, applicable_rules),
+            }
+        )
+
+    verdict_rank = {"GO": 0, "CONDITIONAL_GO": 1, "NO_GO": 2}
+    overall = max(
+        (profile["verdict"] for profile in profile_results),
+        key=lambda verdict: verdict_rank[verdict],
+    )
+    return {
+        "schema_version": 1,
+        "fixture": profiles_document.get("fixture") is True,
+        "current_version": current,
+        "target_version": target,
+        "overall_verdict": overall,
+        "profiles": profile_results,
+    }
+
+
+def _cell(value: Any) -> str:
+    return str(value).replace("\n", "<br>").replace("|", "\\|")
+
+
+def render_markdown(result: dict[str, Any]) -> str:
+    lines = ["# SGLang Upgrade Readiness Audit", ""]
+    if result["fixture"]:
+        lines.extend(
+            [
+                "> **SYNTHETIC FIXTURE:** Deployment profiles and canary "
+                "results are invented for analyzer demonstration.",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            f"- Current: `{_cell(result['current_version'])}`",
+            f"- Target: `{_cell(result['target_version'])}`",
+            f"- Overall verdict: **{_cell(result['overall_verdict'])}**",
+            "- Safety: read-only analysis; no command below was executed.",
+            "",
+            "## Profile Verdicts",
+            "",
+            "| Profile | Verdict | Findings | Proposed changes | "
+            "Missing/failing canaries | Coverage gaps |",
+            "| --- | --- | ---: | --- | --- | --- |",
+        ]
+    )
+    for profile in result["profiles"]:
+        changed = (
+            profile["original_argv"] != profile["proposed_argv"]
+            or profile["original_imports"] != profile["proposed_imports"]
+        )
+        lines.append(
+            f"| `{_cell(profile['id'])}` | **{_cell(profile['verdict'])}** | "
+            f"{len(profile['findings'])} | {'yes' if changed else 'no'} | "
+            f"{_cell(', '.join(profile['missing_or_failing_canaries']) or 'none')} | "
+            f"{_cell(', '.join(profile['coverage_gaps']) or 'none')} |"
+        )
+
+    lines.extend(["", "## Findings", ""])
+    if not any(profile["findings"] for profile in result["profiles"]):
+        lines.append("No deployment-specific rule matched.")
+    for profile in result["profiles"]:
+        if not profile["findings"] and not profile["transform_error"]:
+            continue
+        lines.extend([f"### `{_cell(profile['id'])}`", ""])
+        if profile["transform_error"]:
+            lines.append(
+                f"- **BLOCKER:** transformation conflict: "
+                f"`{_cell(profile['transform_error'])}`"
+            )
+        for finding in profile["findings"]:
+            lines.append(
+                f"- **{_cell(finding['severity'].upper())}** "
+                f"`{_cell(finding['id'])}` — {_cell(finding['title'])}. "
+                f"{_cell(finding['summary'])} "
+                f"([source]({_cell(finding['source_url'])}))"
+            )
+        lines.append("")
+
+    lines.extend(["## Proposed Commands", ""])
+    for profile in result["profiles"]:
+        lines.extend(
+            [
+                f"### `{_cell(profile['id'])}`",
+                "",
+                "Original argv:",
+                "",
+                "```bash",
+                shlex.join(profile["original_argv"]),
+                "```",
+                "",
+                "Proposed argv:",
+                "",
+                "```bash",
+                shlex.join(profile["proposed_argv"]),
+                "```",
+                "",
+            ]
+        )
+        if profile["original_imports"] != profile["proposed_imports"]:
+            lines.extend(
+                [
+                    "Proposed imports:",
+                    "",
+                    "```text",
+                    "\n".join(profile["proposed_imports"]),
+                    "```",
+                    "",
+                ]
+            )
+
+    lines.extend(["## Canaries and Rollback", ""])
+    for profile in result["profiles"]:
+        lines.extend([f"### `{_cell(profile['id'])}`", ""])
+        lines.append(
+            "- Required canaries: "
+            + _cell(", ".join(profile["required_canaries"]) or "none")
+        )
+        lines.append(
+            "- Missing/failing: "
+            + _cell(", ".join(profile["missing_or_failing_canaries"]) or "none")
+        )
+        rollbacks = sorted(
+            {finding["rollback"] for finding in profile["findings"]}
+        )
+        if rollbacks:
+            lines.extend(f"- Rollback: {_cell(rollback)}" for rollback in rollbacks)
+        else:
+            lines.append("- Rollback: restore the recorded current version and argv.")
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Interpretation",
+            "",
+            "- `GO`: no blocking or conditional finding remains and all required "
+            "canaries are recorded as passing.",
+            "- `CONDITIONAL_GO`: apply/review proposed changes or complete "
+            "required canaries before rollout.",
+            "- `NO_GO`: resolve the blocker or choose a different target/configuration.",
+            "- Review every proposed argv. This auditor never executes it.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Audit SGLang version changes against deployment profiles."
+    )
+    parser.add_argument("--profiles", required=True, type=Path)
+    parser.add_argument("--rules", required=True, type=Path)
+    parser.add_argument("--output-markdown", required=True, type=Path)
+    parser.add_argument("--output-json", required=True, type=Path)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        profiles = _load_json_object(args.profiles, "profile")
+        rules = _load_json_object(args.rules, "rule")
+        result = audit(profiles, rules)
+        args.output_markdown.write_text(render_markdown(result), encoding="utf-8")
+        args.output_json.write_text(
+            json.dumps(result, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

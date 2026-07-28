@@ -280,5 +280,123 @@ class TransformationTest(unittest.TestCase):
             )
 
 
+class AuditVerdictTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.mod = load_module()
+
+    def test_unmatched_profile_with_passing_base_canaries_is_go(self) -> None:
+        result = self.mod.audit(valid_profiles(), valid_rules())
+
+        self.assertEqual(result["profiles"][0]["verdict"], "GO")
+        self.assertEqual(result["overall_verdict"], "GO")
+
+    def test_required_rewrite_is_conditional_go(self) -> None:
+        profiles = valid_profiles()
+        profiles["profiles"][0]["argv"].append("--enable-deepep-waterfill")
+
+        result = self.mod.audit(profiles, valid_rules())
+        profile = result["profiles"][0]
+
+        self.assertEqual(profile["verdict"], "CONDITIONAL_GO")
+        self.assertIn("--enable-waterfill", profile["proposed_argv"])
+        self.assertNotIn("--enable-deepep-waterfill", profile["proposed_argv"])
+        self.assertEqual(profile["findings"][0]["id"], "rename-waterfill")
+
+    def test_unresolved_blocker_is_no_go(self) -> None:
+        profiles = valid_profiles()
+        profile = profiles["profiles"][0]
+        profile["features"].extend(
+            ["dp_attention", "breakable_prefill_cuda_graph"]
+        )
+        profile["guarantees"].append("temperature_zero_determinism")
+        rules = valid_rules()
+        rules["rules"].append(
+            {
+                "id": "determinism-known-issue",
+                "category": "known_issue",
+                "severity": "blocker",
+                "title": "Temperature-zero nondeterminism",
+                "applies": {
+                    "mode": "target",
+                    "introduced_in": "v0.5.16",
+                    "fixed_in": None,
+                },
+                "source_url": "https://github.com/sgl-project/sglang/pull/31125",
+                "summary": "Avoid the affected graph path.",
+                "match": {
+                    "all": [
+                        {"kind": "feature", "value": "dp_attention"},
+                        {
+                            "kind": "feature",
+                            "value": "breakable_prefill_cuda_graph",
+                        },
+                        {
+                            "kind": "guarantee",
+                            "value": "temperature_zero_determinism",
+                        },
+                    ]
+                },
+                "transforms": [],
+                "canaries": ["temperature_zero_determinism"],
+                "rollback": "Disable the affected graph path or restore v0.5.15.",
+            }
+        )
+
+        result = self.mod.audit(profiles, rules)
+
+        self.assertEqual(result["profiles"][0]["verdict"], "NO_GO")
+        self.assertEqual(result["overall_verdict"], "NO_GO")
+        self.assertIn(
+            "temperature_zero_determinism",
+            result["profiles"][0]["missing_or_failing_canaries"],
+        )
+
+    def test_markdown_labels_fixture_and_shows_commands(self) -> None:
+        profiles = valid_profiles()
+        profiles["profiles"][0]["argv"].append("--enable-deepep-waterfill")
+
+        result = self.mod.audit(profiles, valid_rules())
+        report = self.mod.render_markdown(result)
+
+        self.assertIn("SYNTHETIC FIXTURE", report)
+        self.assertIn("## Profile Verdicts", report)
+        self.assertIn("## Findings", report)
+        self.assertIn("## Proposed Commands", report)
+        self.assertIn("--enable-waterfill", report)
+        self.assertIn("github.com/sgl-project/sglang/pull/27350", report)
+        self.assertIn("## Canaries and Rollback", report)
+
+    def test_cli_writes_reports_without_executing_argv(self) -> None:
+        profiles = valid_profiles()
+        rules = valid_rules()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            profile_path = root / "profiles.json"
+            rule_path = root / "rules.json"
+            markdown_path = root / "report.md"
+            json_path = root / "report.json"
+            profile_path.write_text(json.dumps(profiles), encoding="utf-8")
+            rule_path.write_text(json.dumps(rules), encoding="utf-8")
+
+            exit_code = self.mod.main(
+                [
+                    "--profiles",
+                    str(profile_path),
+                    "--rules",
+                    str(rule_path),
+                    "--output-markdown",
+                    str(markdown_path),
+                    "--output-json",
+                    str(json_path),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn("SYNTHETIC FIXTURE", markdown_path.read_text("utf-8"))
+            self.assertEqual(
+                json.loads(json_path.read_text("utf-8"))["overall_verdict"], "GO"
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
