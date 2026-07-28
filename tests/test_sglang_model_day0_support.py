@@ -227,3 +227,35 @@ def test_open_evidence_requires_head_and_limitation(tmp_path):
     )
     assert any("open evidence requires immutable head" in item for item in findings)
     assert any("open evidence requires limitation" in item for item in findings)
+
+
+def test_skill_routes_all_references_and_stays_concise():
+    skill = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+    assert len(skill.splitlines()) < 500
+    for name in (
+        "day0-contract.md",
+        "evidence-audit.md",
+        "sanitization.md",
+        "kimi-k3-case-study.md",
+        "deepseek-v4-case-study.md",
+    ):
+        assert name in skill
+
+
+def test_case_studies_use_only_public_sglang_pr_urls():
+    for path in (SKILL_ROOT / "references").glob("*case-study.md"):
+        text = path.read_text(encoding="utf-8")
+        urls = re.findall(
+            r"https://github\.com/[^\s)]+/pull/[0-9]+",
+            text,
+        )
+        assert urls
+        assert all(
+            url.startswith("https://github.com/sgl-project/sglang/pull/")
+            for url in urls
+        )
+
+
+def test_agent_default_prompt_names_the_skill():
+    metadata = (SKILL_ROOT / "agents/openai.yaml").read_text(encoding="utf-8")
+    assert "$sglang-model-day0-support" in metadata

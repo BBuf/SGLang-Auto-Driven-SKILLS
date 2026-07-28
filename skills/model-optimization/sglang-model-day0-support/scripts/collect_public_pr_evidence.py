@@ -14,11 +14,9 @@ import tempfile
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-
 DEFAULT_ALLOWED_REPOSITORIES = {"sgl-project/sglang"}
 PR_URL_PATTERN = re.compile(
-    r"https://github\.com/([A-Za-z0-9_.-]+)/"
-    r"([A-Za-z0-9_.-]+)/pull/([1-9][0-9]*)/?"
+    r"https://github\.com/([A-Za-z0-9_.-]+)/" r"([A-Za-z0-9_.-]+)/pull/([1-9][0-9]*)/?"
 )
 
 
@@ -73,9 +71,7 @@ def build_record(
     return {
         "schema_version": 1,
         "captured_at": captured_at,
-        "repository": "/".join(
-            pr_payload["html_url"].split("/")[3:5]
-        ),
+        "repository": "/".join(pr_payload["html_url"].split("/")[3:5]),
         "number": pr_payload["number"],
         "url": pr_payload["html_url"],
         "title": pr_payload["title"],
@@ -122,8 +118,11 @@ def fetch_record(pr: PublicPR, *, captured_at: str) -> dict[str, Any]:
 
 
 def _utc_now() -> str:
-    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace(
-        "+00:00", "Z"
+    return (
+        dt.datetime.now(dt.timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
     )
 
 

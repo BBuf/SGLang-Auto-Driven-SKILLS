@@ -274,7 +274,8 @@ Expected: every PR URL is public and uses the `sgl-project/sglang` repository.
 Run:
 
 ```bash
-rg -n '/[U]sers/|/[h]ome/|/[d]ata/|git@|dkr\\.ecr|\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b' \
+private_pattern='/[U]sers/|/[h]''ome/|/[d]''ata/|git''@|dkr\\.ecr|\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b'
+rg -n "$private_pattern" \
   skills/model-optimization/sglang-model-day0-support || true
 ```
 
@@ -826,8 +827,8 @@ git diff --unified=0 origin/main...HEAD -- \
   docs/assets/sglang-model-day0-support-demo \
   docs/superpowers/specs/2026-07-28-sglang-model-day0-support-design.md \
   docs/superpowers/plans/2026-07-28-sglang-model-day0-support.md \
-  tests/test_sglang_model_day0_support.py |
-rg '/[U]sers/|/[h]ome/|/[d]ata/|git@|dkr\\.ecr|\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b' &&
+tests/test_sglang_model_day0_support.py |
+rg '/[U]sers/|/[h]''ome/|/[d]''ata/|git''@|dkr\\.ecr|\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b' &&
   exit 1 || true
 ```
 

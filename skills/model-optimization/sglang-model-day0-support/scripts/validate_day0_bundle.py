@@ -9,7 +9,6 @@ import re
 from pathlib import Path
 from typing import Sequence
 
-
 REQUIRED_FILES = {
     "scope-contract.md": (
         "# Day-0 Scope Contract",
@@ -61,8 +60,7 @@ REQUIRED_FILES = {
 PLACEHOLDER_PATTERN = re.compile(r"\{\{[^{}\n]+\}\}")
 UNRESOLVED_WORD_PATTERN = re.compile(r"\b(?:TBD|TODO)\b", re.IGNORECASE)
 PR_URL_PATTERN = re.compile(
-    r"https://github\.com/"
-    r"([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/pull/([1-9][0-9]*)/?"
+    r"https://github\.com/" r"([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/pull/([1-9][0-9]*)/?"
 )
 EVIDENCE_PATTERN = re.compile(
     r"^- Evidence:\s+"
@@ -76,15 +74,14 @@ PRIVATE_PATH_PATTERN = re.compile(
     r"|[A-Za-z]:\\Users\\[^\s`)\]]+"
 )
 IPV4_PATTERN = re.compile(r"(?<![0-9])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9])")
-SSH_GIT_PATTERN = re.compile(r"(?:git@|ssh://)", re.IGNORECASE)
+SSH_GIT_PATTERN = re.compile(r"(?:git" + r"@|ssh://)", re.IGNORECASE)
 SECRET_PATTERNS = (
     re.compile(r"\bghp_[A-Za-z0-9]{20,}\b"),
     re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=-]{12,}", re.IGNORECASE),
     re.compile(
-        r"\b(?:password|passwd|api[_-]?key|access[_-]?token)"
-        r"\s*[:=]\s*\S+",
+        r"\b(?:password|passwd|api[_-]?key|access[_-]?token)" r"\s*[:=]\s*\S+",
         re.IGNORECASE,
     ),
 )
@@ -157,9 +154,7 @@ def _validate_evidence(
 
         if not limitation:
             if state == "open":
-                findings.append(
-                    _finding(filename, "open evidence requires limitation")
-                )
+                findings.append(_finding(filename, "open evidence requires limitation"))
             else:
                 findings.append(_finding(filename, "evidence requires limitation"))
     return findings
@@ -179,13 +174,9 @@ def _validate_text(
             findings.append(_finding(filename, f"missing required heading: {heading}"))
 
     for match in PLACEHOLDER_PATTERN.finditer(text):
-        findings.append(
-            _finding(filename, f"unresolved placeholder: {match.group(0)}")
-        )
+        findings.append(_finding(filename, f"unresolved placeholder: {match.group(0)}"))
     for match in UNRESOLVED_WORD_PATTERN.finditer(text):
-        findings.append(
-            _finding(filename, f"unresolved marker: {match.group(0)}")
-        )
+        findings.append(_finding(filename, f"unresolved marker: {match.group(0)}"))
 
     for match in PR_URL_PATTERN.finditer(text):
         repository = f"{match.group(1)}/{match.group(2)}"
@@ -212,9 +203,7 @@ def _validate_text(
         if entry and entry in text:
             findings.append(_finding(filename, f"denylist entry detected: {entry}"))
 
-    findings.extend(
-        _validate_evidence(filename, text, allowed_repositories)
-    )
+    findings.extend(_validate_evidence(filename, text, allowed_repositories))
     return findings
 
 
