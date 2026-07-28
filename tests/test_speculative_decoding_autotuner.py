@@ -397,5 +397,45 @@ class FixtureDemoTest(unittest.TestCase):
         )
 
 
+class SkillDocumentationTest(unittest.TestCase):
+    def test_skill_has_required_contract_and_handoffs(self) -> None:
+        skill = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+
+        for required in [
+            "name: sglang-speculative-decoding-autotuner",
+            "non-speculative baseline",
+            "compatibility",
+            "correctness",
+            "Pareto",
+            "no_safe_improvement",
+            "llm-serving-auto-benchmark",
+            "sglang-sota-humanize-loop",
+            "SYNTHETIC FIXTURE",
+        ]:
+            self.assertIn(required, skill)
+        self.assertNotIn("TODO", skill)
+
+    def test_references_define_evidence_and_schema(self) -> None:
+        compatibility = (
+            SKILL_ROOT / "references" / "compatibility-and-search.md"
+        ).read_text(encoding="utf-8")
+        schema = (
+            SKILL_ROOT / "references" / "measurement-schema.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("selected SGLang revision", compatibility)
+        self.assertIn("bounded", compatibility)
+        self.assertIn("schema_version", schema)
+        self.assertIn("Unknown optional metrics", schema)
+
+    def test_openai_metadata_mentions_the_skill(self) -> None:
+        metadata = (SKILL_ROOT / "agents" / "openai.yaml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("SGLang Speculative Decoding Autotuner", metadata)
+        self.assertIn("$sglang-speculative-decoding-autotuner", metadata)
+
+
 if __name__ == "__main__":
     unittest.main()

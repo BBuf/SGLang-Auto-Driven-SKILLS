@@ -1,0 +1,4 @@
+interface:
+  display_name: "SGLang Speculative Decoding Autotuner"
+  short_description: "Tune safe speculative decoding configs"
+  default_prompt: "Use $sglang-speculative-decoding-autotuner to find the safest, fastest speculative decoding configuration for this SGLang workload."
