@@ -160,5 +160,119 @@ class MeasurementValidationTest(unittest.TestCase):
             self.mod.validate_document(document)
 
 
+class CandidateDecisionTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.mod = load_module()
+
+    def test_hard_gates_precede_performance_ranking(self) -> None:
+        document = valid_document()
+        add_candidate(
+            document,
+            candidate_id="wrong-fast",
+            algorithm="DSPARK",
+            ttft_ms=80.0,
+            tpot_ms=2.0,
+            output_throughput=180.0,
+            correct=False,
+        )
+        add_candidate(
+            document,
+            candidate_id="slow-tpot",
+            algorithm="EAGLE",
+            ttft_ms=90.0,
+            tpot_ms=6.0,
+            output_throughput=150.0,
+        )
+
+        result = self.mod.analyze(document)
+
+        self.assertEqual(result["rejected"]["wrong-fast"], ["correctness_failed"])
+        self.assertEqual(
+            result["rejected"]["slow-tpot"], ["max_tpot_ms_exceeded"]
+        )
+        self.assertEqual(result["recommendation"]["status"], "no_safe_improvement")
+
+    def test_pareto_frontier_and_objective_select_safe_winner(self) -> None:
+        document = valid_document()
+        add_candidate(
+            document,
+            candidate_id="mtp-low-latency",
+            algorithm="MTP",
+            ttft_ms=95.0,
+            tpot_ms=3.7,
+            output_throughput=118.0,
+        )
+        add_candidate(
+            document,
+            candidate_id="dspark-balanced",
+            algorithm="DSPARK",
+            ttft_ms=100.0,
+            tpot_ms=4.1,
+            output_throughput=135.0,
+        )
+        add_candidate(
+            document,
+            candidate_id="dominated",
+            algorithm="EAGLE",
+            ttft_ms=110.0,
+            tpot_ms=4.8,
+            output_throughput=110.0,
+        )
+
+        result = self.mod.analyze(document)
+
+        self.assertEqual(
+            result["pareto_frontier"], ["dspark-balanced", "mtp-low-latency"]
+        )
+        self.assertEqual(
+            result["recommendation"]["candidate_id"], "dspark-balanced"
+        )
+        self.assertEqual(result["recommendation"]["status"], "recommended")
+        self.assertAlmostEqual(
+            result["recommendation"]["improvement_percent"], 35.0
+        )
+
+    def test_below_noise_threshold_returns_no_safe_improvement(self) -> None:
+        document = valid_document()
+        add_candidate(
+            document,
+            candidate_id="tiny-gain",
+            algorithm="MTP",
+            ttft_ms=110.0,
+            tpot_ms=4.4,
+            output_throughput=102.0,
+        )
+
+        result = self.mod.analyze(document)
+
+        self.assertEqual(
+            result["recommendation"]["status"], "no_safe_improvement"
+        )
+        self.assertIsNone(result["recommendation"]["candidate_id"])
+        self.assertAlmostEqual(result["recommendation"]["improvement_percent"], 2.0)
+
+    def test_missing_selection_metric_is_rejected(self) -> None:
+        document = valid_document()
+        candidate = add_candidate(
+            document,
+            candidate_id="missing-tpot",
+            algorithm="MTP",
+            ttft_ms=90.0,
+            tpot_ms=4.0,
+            output_throughput=120.0,
+        )
+        del candidate["metrics"]["tpot_ms"]
+
+        result = self.mod.analyze(document)
+
+        self.assertEqual(
+            result["rejected"]["missing-tpot"],
+            [
+                "hard_limit_metric_missing:tpot_ms",
+                "pareto_metric_missing:tpot_ms",
+            ],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

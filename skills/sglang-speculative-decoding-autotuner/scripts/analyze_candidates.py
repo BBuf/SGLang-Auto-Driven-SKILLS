@@ -166,3 +166,204 @@ def validate_document(document: dict[str, Any]) -> None:
 
     if baseline_count != 1:
         raise ValueError("candidates must contain exactly one baseline")
+
+
+def _gate_reasons(
+    candidate: dict[str, Any],
+    experiment: dict[str, Any],
+) -> list[str]:
+    reasons: list[str] = []
+    status = candidate["status"]
+    for field, reason in (
+        ("healthy", "health_failed"),
+        ("correct", "correctness_failed"),
+        ("deterministic", "determinism_failed"),
+    ):
+        if status[field] is not True:
+            reasons.append(reason)
+
+    metrics = candidate["metrics"]
+    for limit_name, (metric_name, direction) in LIMITS.items():
+        if limit_name not in experiment["hard_limits"]:
+            continue
+        if metrics.get(metric_name) is None:
+            reasons.append(f"hard_limit_metric_missing:{metric_name}")
+            continue
+        limit = float(experiment["hard_limits"][limit_name])
+        value = float(metrics[metric_name])
+        failed = value > limit if direction == "max" else value < limit
+        if failed:
+            reasons.append(
+                f"{limit_name}_exceeded"
+                if direction == "max"
+                else f"{limit_name}_not_met"
+            )
+
+    primary = experiment["objective"]["primary"]
+    if metrics.get(primary) is None:
+        reasons.append(f"objective_metric_missing:{primary}")
+
+    if candidate["baseline"] is not True:
+        for spec in experiment["pareto_metrics"]:
+            metric_name = spec["name"]
+            if metrics.get(metric_name) is None:
+                reasons.append(f"pareto_metric_missing:{metric_name}")
+
+    return reasons
+
+
+def _dominates(
+    left: dict[str, Any],
+    right: dict[str, Any],
+    metric_specs: list[dict[str, str]],
+) -> bool:
+    at_least_as_good = True
+    strictly_better = False
+    for spec in metric_specs:
+        metric_name = spec["name"]
+        left_value = float(left["metrics"][metric_name])
+        right_value = float(right["metrics"][metric_name])
+        if spec["direction"] == "maximize":
+            if left_value < right_value:
+                at_least_as_good = False
+            if left_value > right_value:
+                strictly_better = True
+        else:
+            if left_value > right_value:
+                at_least_as_good = False
+            if left_value < right_value:
+                strictly_better = True
+    return at_least_as_good and strictly_better
+
+
+def pareto_frontier(
+    candidates: list[dict[str, Any]],
+    metric_specs: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    frontier = [
+        candidate
+        for candidate in candidates
+        if not any(
+            other["id"] != candidate["id"]
+            and _dominates(other, candidate, metric_specs)
+            for other in candidates
+        )
+    ]
+    return sorted(frontier, key=lambda candidate: candidate["id"])
+
+
+def _improvement_percent(
+    baseline: float,
+    candidate: float,
+    direction: str,
+) -> float:
+    if baseline == 0:
+        if candidate == 0:
+            return 0.0
+        favorable = candidate > 0 if direction == "maximize" else candidate < 0
+        return math.inf if favorable else -math.inf
+    favorable_delta = (
+        candidate - baseline if direction == "maximize" else baseline - candidate
+    )
+    return favorable_delta / abs(baseline) * 100.0
+
+
+def _metric_deltas(
+    baseline: dict[str, Any],
+    candidate: dict[str, Any],
+) -> dict[str, float]:
+    deltas: dict[str, float] = {}
+    for name, baseline_value in baseline["metrics"].items():
+        candidate_value = candidate["metrics"].get(name)
+        if baseline_value is None or candidate_value is None:
+            continue
+        if isinstance(baseline_value, bool) or isinstance(candidate_value, bool):
+            continue
+        if not isinstance(baseline_value, (int, float)) or not isinstance(
+            candidate_value, (int, float)
+        ):
+            continue
+        deltas[name] = float(candidate_value) - float(baseline_value)
+    return deltas
+
+
+def analyze(document: dict[str, Any]) -> dict[str, Any]:
+    validate_document(document)
+    experiment = document["experiment"]
+    candidates = document["candidates"]
+    baseline = next(candidate for candidate in candidates if candidate["baseline"])
+
+    rejected: dict[str, list[str]] = {}
+    accepted: list[dict[str, Any]] = []
+    for candidate in candidates:
+        reasons = _gate_reasons(candidate, experiment)
+        if reasons:
+            rejected[candidate["id"]] = reasons
+        else:
+            accepted.append(candidate)
+
+    speculative = [
+        candidate for candidate in accepted if candidate["baseline"] is not True
+    ]
+    frontier = pareto_frontier(speculative, experiment["pareto_metrics"])
+    objective = experiment["objective"]
+    primary = objective["primary"]
+
+    if baseline["id"] in rejected or not frontier:
+        recommendation: dict[str, Any] = {
+            "status": "no_safe_improvement",
+            "candidate_id": None,
+            "improvement_percent": None,
+        }
+    else:
+        direction = objective["direction"]
+        winner = sorted(
+            frontier,
+            key=lambda candidate: (
+                -float(candidate["metrics"][primary])
+                if direction == "maximize"
+                else float(candidate["metrics"][primary]),
+                candidate["id"],
+            ),
+        )[0]
+        improvement = _improvement_percent(
+            float(baseline["metrics"][primary]),
+            float(winner["metrics"][primary]),
+            direction,
+        )
+        threshold = float(objective.get("minimum_improvement_percent", 0.0))
+        is_recommended = improvement >= threshold
+        recommendation = {
+            "status": "recommended" if is_recommended else "no_safe_improvement",
+            "candidate_id": winner["id"] if is_recommended else None,
+            "improvement_percent": improvement,
+        }
+
+    evaluations = []
+    for candidate in sorted(candidates, key=lambda item: item["id"]):
+        evaluations.append(
+            {
+                "id": candidate["id"],
+                "baseline": candidate["baseline"],
+                "algorithm": candidate["algorithm"],
+                "accepted": candidate["id"] not in rejected,
+                "reasons": rejected.get(candidate["id"], []),
+                "metrics": candidate["metrics"],
+                "baseline_deltas": _metric_deltas(baseline, candidate),
+                "command": candidate["command"],
+                "repeat_count": candidate["repeat_count"],
+                "artifacts": candidate["artifacts"],
+            }
+        )
+
+    return {
+        "schema_version": 1,
+        "fixture": document.get("fixture") is True,
+        "experiment": experiment,
+        "baseline_id": baseline["id"],
+        "accepted": sorted(candidate["id"] for candidate in accepted),
+        "rejected": rejected,
+        "pareto_frontier": [candidate["id"] for candidate in frontier],
+        "recommendation": recommendation,
+        "evaluations": evaluations,
+    }
