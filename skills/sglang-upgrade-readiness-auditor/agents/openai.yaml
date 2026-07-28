@@ -1,0 +1,4 @@
+interface:
+  display_name: "SGLang Upgrade Readiness Auditor"
+  short_description: "Audit SGLang upgrades before rollout"
+  default_prompt: "Use $sglang-upgrade-readiness-auditor to audit this SGLang version upgrade and produce a safe migration and canary plan."

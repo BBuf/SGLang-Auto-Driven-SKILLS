@@ -437,5 +437,46 @@ class FixtureDemoTest(unittest.TestCase):
         )
 
 
+class SkillDocumentationTest(unittest.TestCase):
+    def test_skill_has_read_only_and_verdict_contract(self) -> None:
+        skill = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+
+        for required in [
+            "name: sglang-upgrade-readiness-auditor",
+            "read-only",
+            "immutable",
+            "GO",
+            "CONDITIONAL_GO",
+            "NO_GO",
+            "canary",
+            "rollback",
+            "never execute",
+            "SYNTHETIC FIXTURE",
+        ]:
+            self.assertIn(required, skill)
+        self.assertNotIn("TODO", skill)
+
+    def test_references_define_source_priority_and_safe_argv(self) -> None:
+        evidence = (
+            SKILL_ROOT / "references" / "evidence-and-rule-authoring.md"
+        ).read_text(encoding="utf-8")
+        schema = (
+            SKILL_ROOT / "references" / "profile-and-rule-schema.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("Release", evidence)
+        self.assertIn("compare", evidence)
+        self.assertIn("argv arrays", schema)
+        self.assertIn("rename_flag", schema)
+
+    def test_openai_metadata_mentions_the_skill(self) -> None:
+        metadata = (SKILL_ROOT / "agents" / "openai.yaml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("SGLang Upgrade Readiness Auditor", metadata)
+        self.assertIn("$sglang-upgrade-readiness-auditor", metadata)
+
+
 if __name__ == "__main__":
     unittest.main()
