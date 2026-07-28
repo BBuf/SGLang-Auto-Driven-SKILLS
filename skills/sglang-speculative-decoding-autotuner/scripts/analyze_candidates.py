@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 VALID_DIRECTIONS = {"minimize", "maximize"}
 NON_NEGATIVE_METRICS = {
     "ttft_ms",
@@ -71,14 +70,10 @@ def validate_document(document: dict[str, Any]) -> None:
         _require_string(experiment.get(field), f"experiment.{field}")
     _require_mapping(experiment.get("workload"), "experiment.workload")
 
-    objective = _require_mapping(
-        experiment.get("objective"), "experiment.objective"
-    )
+    objective = _require_mapping(experiment.get("objective"), "experiment.objective")
     _require_string(objective.get("primary"), "experiment.objective.primary")
     if objective.get("direction") not in VALID_DIRECTIONS:
-        raise ValueError(
-            "experiment.objective.direction must be minimize or maximize"
-        )
+        raise ValueError("experiment.objective.direction must be minimize or maximize")
     if "minimum_improvement_percent" in objective:
         threshold = _finite_number(
             objective["minimum_improvement_percent"],
@@ -150,9 +145,7 @@ def validate_document(document: dict[str, Any]) -> None:
                 continue
             number = _finite_number(value, f"{candidate_id}.metrics.{name}")
             if name in NON_NEGATIVE_METRICS and number < 0:
-                raise ValueError(
-                    f"{candidate_id}.metrics.{name} must be non-negative"
-                )
+                raise ValueError(f"{candidate_id}.metrics.{name} must be non-negative")
         repeat_count = candidate.get("repeat_count")
         if not isinstance(repeat_count, int) or isinstance(repeat_count, bool):
             raise ValueError(f"{candidate_id}.repeat_count must be an integer")
@@ -320,9 +313,11 @@ def analyze(document: dict[str, Any]) -> dict[str, Any]:
         winner = sorted(
             frontier,
             key=lambda candidate: (
-                -float(candidate["metrics"][primary])
-                if direction == "maximize"
-                else float(candidate["metrics"][primary]),
+                (
+                    -float(candidate["metrics"][primary])
+                    if direction == "maximize"
+                    else float(candidate["metrics"][primary])
+                ),
                 candidate["id"],
             ),
         )[0]
@@ -457,8 +452,7 @@ def render_markdown(result: dict[str, Any]) -> str:
     lines.extend(["", "## Pareto Frontier", ""])
     if result["pareto_frontier"]:
         lines.extend(
-            f"- `{_cell(candidate_id)}`"
-            for candidate_id in result["pareto_frontier"]
+            f"- `{_cell(candidate_id)}`" for candidate_id in result["pareto_frontier"]
         )
     else:
         lines.append("- No safe speculative candidate reached the frontier.")
@@ -471,10 +465,8 @@ def render_markdown(result: dict[str, Any]) -> str:
             "## Recommendation",
             "",
             f"- Status: `{_cell(recommendation['status'])}`",
-            f"- Candidate: "
-            f"`{_cell(recommendation.get('candidate_id') or 'none')}`",
-            f"- Primary-metric improvement: "
-            f"`{_metric(improvement)}%`",
+            f"- Candidate: " f"`{_cell(recommendation.get('candidate_id') or 'none')}`",
+            f"- Primary-metric improvement: " f"`{_metric(improvement)}%`",
             "",
             "## Candidate Commands",
             "",
