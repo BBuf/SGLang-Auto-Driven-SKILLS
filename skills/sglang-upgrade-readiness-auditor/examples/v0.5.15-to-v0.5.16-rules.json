@@ -1,0 +1,257 @@
+{
+  "schema_version": 1,
+  "rules": [
+    {
+      "id": "fp4-cutlass-backend-removed",
+      "category": "removed_interface",
+      "severity": "required",
+      "title": "CUTLASS FP4 backend value removed",
+      "applies": {
+        "mode": "crossing",
+        "introduced_in": "v0.5.16",
+        "fixed_in": null
+      },
+      "source_url": "https://github.com/sgl-project/sglang/pull/30448",
+      "summary": "The in-tree NVFP4 JIT path and cutlass value were removed; v0.5.16 release guidance says to use auto.",
+      "match": {
+        "all": [
+          {
+            "kind": "argv_value",
+            "name": "--fp4-gemm-backend",
+            "equals": "cutlass"
+          }
+        ]
+      },
+      "transforms": [
+        {
+          "kind": "replace_value",
+          "flag": "--fp4-gemm-backend",
+          "from": "cutlass",
+          "to": "auto"
+        }
+      ],
+      "canaries": [
+        "server_health",
+        "correctness",
+        "performance"
+      ],
+      "rollback": "Restore the v0.5.15 image if the FlashInfer-selected auto backend fails correctness or performance canaries."
+    },
+    {
+      "id": "deepep-waterfill-flag-renamed",
+      "category": "renamed_interface",
+      "severity": "required",
+      "title": "Waterfill flag renamed without alias",
+      "applies": {
+        "mode": "crossing",
+        "introduced_in": "v0.5.16",
+        "fixed_in": null
+      },
+      "source_url": "https://github.com/sgl-project/sglang/pull/27350",
+      "summary": "--enable-deepep-waterfill became --enable-waterfill and the old spelling is rejected.",
+      "match": {
+        "all": [
+          {
+            "kind": "argv_flag",
+            "name": "--enable-deepep-waterfill"
+          }
+        ]
+      },
+      "transforms": [
+        {
+          "kind": "rename_flag",
+          "from": "--enable-deepep-waterfill",
+          "to": "--enable-waterfill"
+        }
+      ],
+      "canaries": [
+        "server_health",
+        "performance"
+      ],
+      "rollback": "Restore the prior image and old flag if waterfill startup or throughput validation fails."
+    },
+    {
+      "id": "optimistic-prefill-attempts-rename",
+      "category": "renamed_interface",
+      "severity": "required",
+      "title": "Optimistic prefill retries flag renamed",
+      "applies": {
+        "mode": "crossing",
+        "introduced_in": "v0.5.16",
+        "fixed_in": null
+      },
+      "source_url": "https://github.com/sgl-project/sglang/pull/30951",
+      "summary": "--optimistic-prefill-retries became --optimistic-prefill-attempts with no deprecated alias.",
+      "match": {
+        "all": [
+          {
+            "kind": "argv_flag",
+            "name": "--optimistic-prefill-retries"
+          }
+        ]
+      },
+      "transforms": [
+        {
+          "kind": "rename_flag",
+          "from": "--optimistic-prefill-retries",
+          "to": "--optimistic-prefill-attempts"
+        }
+      ],
+      "canaries": [
+        "pd_retry_abort",
+        "server_health"
+      ],
+      "rollback": "Restore v0.5.15 if PD retry, abort, or parked-request canaries fail."
+    },
+    {
+      "id": "unified-radix-tree-default",
+      "category": "default_change",
+      "severity": "behavior",
+      "title": "UnifiedRadixTree becomes the DSA/Mamba/SWA default",
+      "applies": {
+        "mode": "crossing",
+        "introduced_in": "v0.5.16",
+        "fixed_in": null
+      },
+      "source_url": "https://github.com/sgl-project/sglang/pull/30468",
+      "summary": "The cache implementation changes by default for DSA, Mamba, and SWA architectures.",
+      "match": {
+        "all": [
+          {
+            "kind": "feature",
+            "value": "dsa_model"
+          }
+        ]
+      },
+      "transforms": [],
+      "canaries": [
+        "long_context",
+        "correctness",
+        "prefix_cache"
+      ],
+      "rollback": "Return to the prior release if cache-hit, long-context, or output-parity canaries regress."
+    },
+    {
+      "id": "chunked-input-logprob-default",
+      "category": "default_change",
+      "severity": "behavior",
+      "title": "Chunked input-logprob processing enabled by default",
+      "applies": {
+        "mode": "crossing",
+        "introduced_in": "v0.5.16",
+        "fixed_in": null
+      },
+      "source_url": "https://github.com/sgl-project/sglang/pull/31498",
+      "summary": "Input-logprob requests use chunked processing by default to cap peak memory.",
+      "match": {
+        "all": [
+          {
+            "kind": "feature",
+            "value": "input_logprobs"
+          }
+        ]
+      },
+      "transforms": [],
+      "canaries": [
+        "input_logprob_parity",
+        "long_context",
+        "peak_memory"
+      ],
+      "rollback": "Restore the prior release if logprob parity or long-context behavior changes unexpectedly."
+    },
+    {
+      "id": "kernel-namespace-relocation",
+      "category": "internal_import_change",
+      "severity": "required",
+      "title": "Internal kernels move to sglang.kernels",
+      "applies": {
+        "mode": "crossing",
+        "introduced_in": "v0.5.16",
+        "fixed_in": null
+      },
+      "source_url": "https://github.com/sgl-project/sglang/releases/tag/v0.5.16",
+      "summary": "The release relocates internal kernel imports into the sglang.kernels namespace.",
+      "match": {
+        "all": [
+          {
+            "kind": "import_prefix",
+            "value": "sglang.jit_kernel"
+          }
+        ]
+      },
+      "transforms": [
+        {
+          "kind": "replace_import_prefix",
+          "from": "sglang.jit_kernel",
+          "to": "sglang.kernels"
+        }
+      ],
+      "canaries": [
+        "import_smoke",
+        "correctness"
+      ],
+      "rollback": "Restore the old extension and image if the exact relocated wrapper cannot be imported or validated."
+    },
+    {
+      "id": "dp-breakable-graph-temperature-zero-nondeterminism",
+      "category": "known_issue",
+      "severity": "blocker",
+      "title": "Temperature-zero nondeterminism in an affected DP graph path",
+      "applies": {
+        "mode": "target",
+        "introduced_in": "v0.5.16",
+        "fixed_in": null
+      },
+      "source_url": "https://github.com/sgl-project/sglang/pull/31125",
+      "summary": "The v0.5.16 known issue says identical temperature-zero requests can diverge with DP attention and breakable prefill CUDA Graph.",
+      "match": {
+        "all": [
+          {
+            "kind": "feature",
+            "value": "dp_attention"
+          },
+          {
+            "kind": "feature",
+            "value": "breakable_prefill_cuda_graph"
+          },
+          {
+            "kind": "guarantee",
+            "value": "temperature_zero_determinism"
+          }
+        ]
+      },
+      "transforms": [],
+      "canaries": [
+        "temperature_zero_determinism"
+      ],
+      "rollback": "Do not roll out this combination; disable the affected graph path or restore the previous release."
+    },
+    {
+      "id": "diffusion-rollout-msgpack-transport",
+      "category": "api_change",
+      "severity": "required",
+      "title": "Diffusion rollout transport changes to msgpack",
+      "applies": {
+        "mode": "crossing",
+        "introduced_in": "v0.5.16",
+        "fixed_in": null
+      },
+      "source_url": "https://github.com/sgl-project/sglang/pull/31565",
+      "summary": "Post-training rollout responses switch from JSON/base64 tensors to application/msgpack raw bytes.",
+      "match": {
+        "all": [
+          {
+            "kind": "integration",
+            "value": "diffusion_post_training_rollout"
+          }
+        ]
+      },
+      "transforms": [],
+      "canaries": [
+        "rollout_transport_contract",
+        "tensor_round_trip"
+      ],
+      "rollback": "Upgrade client and server in lockstep or keep both sides on the prior transport."
+    }
+  ]
+}

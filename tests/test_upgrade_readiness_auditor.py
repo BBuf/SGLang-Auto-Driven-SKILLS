@@ -398,5 +398,44 @@ class AuditVerdictTest(unittest.TestCase):
             )
 
 
+class FixtureDemoTest(unittest.TestCase):
+    def test_v0516_fixture_report_is_reproducible(self) -> None:
+        module = load_module()
+        profiles = json.loads(
+            (
+                SKILL_ROOT
+                / "examples"
+                / "v0.5.15-to-v0.5.16-profiles.json"
+            ).read_text(encoding="utf-8")
+        )
+        rules = json.loads(
+            (
+                SKILL_ROOT / "examples" / "v0.5.15-to-v0.5.16-rules.json"
+            ).read_text(encoding="utf-8")
+        )
+
+        result = module.audit(profiles, rules)
+        generated = module.render_markdown(result)
+        committed = (SKILL_ROOT / "examples" / "fixture-report.md").read_text(
+            encoding="utf-8"
+        )
+        by_id = {profile["id"]: profile for profile in result["profiles"]}
+
+        self.assertEqual(generated, committed)
+        self.assertEqual(by_id["plain-tp"]["verdict"], "GO")
+        self.assertEqual(
+            by_id["legacy-fp4-pd"]["verdict"], "CONDITIONAL_GO"
+        )
+        self.assertEqual(
+            by_id["deterministic-dp-graph"]["verdict"], "NO_GO"
+        )
+        self.assertEqual(result["overall_verdict"], "NO_GO")
+        self.assertIn("--enable-waterfill", by_id["legacy-fp4-pd"]["proposed_argv"])
+        self.assertIn(
+            "sglang.kernels.fast_op",
+            by_id["legacy-fp4-pd"]["proposed_imports"],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

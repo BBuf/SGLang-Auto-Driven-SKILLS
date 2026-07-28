@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "fixture": true,
+  "audit": {
+    "current_version": "v0.5.15",
+    "target_version": "v0.5.16",
+    "required_canaries": [
+      "server_health",
+      "correctness",
+      "performance"
+    ]
+  },
+  "profiles": [
+    {
+      "id": "plain-tp",
+      "argv": [
+        "python3",
+        "-m",
+        "sglang.launch_server",
+        "--model-path",
+        "fixture/dense-model",
+        "--tp",
+        "8"
+      ],
+      "env": {},
+      "model_family": "dense",
+      "quantization": "fp8",
+      "hardware": "synthetic-b200",
+      "topology": {
+        "tp": 8,
+        "pp": 1,
+        "dp": 1,
+        "ep": 1,
+        "cp": 1
+      },
+      "features": [],
+      "guarantees": [],
+      "integrations": [],
+      "imports": [],
+      "canary_results": {
+        "server_health": "pass",
+        "correctness": "pass",
+        "performance": "pass"
+      }
+    },
+    {
+      "id": "legacy-fp4-pd",
+      "argv": [
+        "python3",
+        "-m",
+        "sglang.launch_server",
+        "--model-path",
+        "fixture/dsa-moe-model",
+        "--tp",
+        "8",
+        "--fp4-gemm-backend",
+        "cutlass",
+        "--enable-deepep-waterfill",
+        "--optimistic-prefill-retries",
+        "3"
+      ],
+      "env": {},
+      "model_family": "dsa-moe",
+      "quantization": "nvfp4",
+      "hardware": "synthetic-b200",
+      "topology": {
+        "tp": 8,
+        "pp": 1,
+        "dp": 8,
+        "ep": 8,
+        "cp": 1
+      },
+      "features": [
+        "dsa_model",
+        "input_logprobs",
+        "pd_disaggregation"
+      ],
+      "guarantees": [
+        "api_compatibility"
+      ],
+      "integrations": [],
+      "imports": [
+        "sglang.jit_kernel.fast_op",
+        "torch"
+      ],
+      "canary_results": {
+        "server_health": "pass",
+        "correctness": "pass",
+        "performance": "pass",
+        "import_smoke": "not_run",
+        "long_context": "not_run",
+        "pd_retry_abort": "not_run"
+      }
+    },
+    {
+      "id": "deterministic-dp-graph",
+      "argv": [
+        "python3",
+        "-m",
+        "sglang.launch_server",
+        "--model-path",
+        "fixture/dsv4-fp4",
+        "--tp",
+        "8",
+        "--dp",
+        "8",
+        "--enable-dp-attention",
+        "--enable-piecewise-cuda-graph"
+      ],
+      "env": {},
+      "model_family": "deepseek-v4",
+      "quantization": "nvfp4",
+      "hardware": "synthetic-b300",
+      "topology": {
+        "tp": 8,
+        "pp": 1,
+        "dp": 8,
+        "ep": 8,
+        "cp": 1
+      },
+      "features": [
+        "dp_attention",
+        "breakable_prefill_cuda_graph"
+      ],
+      "guarantees": [
+        "temperature_zero_determinism"
+      ],
+      "integrations": [],
+      "imports": [],
+      "canary_results": {
+        "server_health": "pass",
+        "correctness": "pass",
+        "performance": "pass",
+        "temperature_zero_determinism": "fail"
+      }
+    }
+  ]
+}
