@@ -369,5 +369,33 @@ class ReportAndCliTest(unittest.TestCase):
             self.assertEqual(exit_code, 2)
 
 
+class FixtureDemoTest(unittest.TestCase):
+    def test_committed_fixture_report_is_reproducible(self) -> None:
+        module = load_module()
+        document = module.load_document(
+            SKILL_ROOT / "examples" / "fixture-measurements.json"
+        )
+
+        result = module.analyze(document)
+        generated = module.render_markdown(result)
+        committed = (
+            SKILL_ROOT / "examples" / "fixture-report.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertEqual(generated, committed)
+        self.assertEqual(
+            result["recommendation"]["candidate_id"], "dspark-balanced"
+        )
+        self.assertEqual(
+            result["rejected"]["dspark-wrong-output"], ["correctness_failed"]
+        )
+        self.assertEqual(
+            result["rejected"]["eagle-sla-miss"], ["max_tpot_ms_exceeded"]
+        )
+        self.assertEqual(
+            result["pareto_frontier"], ["dspark-balanced", "mtp-low-latency"]
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "fixture": true,
+  "experiment": {
+    "id": "synthetic-v0516-spec-search",
+    "model": "fixture/long-context-moe",
+    "model_revision": "fixture-only",
+    "sglang_revision": "v0.5.16",
+    "hardware": "synthetic-8x-blackwell",
+    "workload": {
+      "input_tokens": 4096,
+      "output_tokens": 512,
+      "concurrency": 8
+    },
+    "objective": {
+      "primary": "output_throughput",
+      "direction": "maximize",
+      "minimum_improvement_percent": 3.0
+    },
+    "hard_limits": {
+      "max_ttft_ms": 400.0,
+      "max_tpot_ms": 4.5,
+      "max_peak_memory_gb": 180.0
+    },
+    "pareto_metrics": [
+      {
+        "name": "output_throughput",
+        "direction": "maximize"
+      },
+      {
+        "name": "tpot_ms",
+        "direction": "minimize"
+      }
+    ]
+  },
+  "candidates": [
+    {
+      "id": "baseline",
+      "baseline": true,
+      "algorithm": "NONE",
+      "command": [
+        "python3",
+        "-m",
+        "sglang.launch_server",
+        "--model-path",
+        "fixture/long-context-moe",
+        "--tp",
+        "8"
+      ],
+      "experiment_id": "synthetic-v0516-spec-search",
+      "status": {
+        "healthy": true,
+        "correct": true,
+        "deterministic": true
+      },
+      "metrics": {
+        "ttft_ms": 160.0,
+        "tpot_ms": 4.4,
+        "output_throughput": 100.0,
+        "request_throughput": 1.2,
+        "peak_memory_gb": 145.0,
+        "acceptance_length": null
+      },
+      "repeat_count": 3,
+      "artifacts": [
+        "synthetic/raw/baseline.json"
+      ]
+    },
+    {
+      "id": "dspark-wrong-output",
+      "baseline": false,
+      "algorithm": "DSPARK",
+      "command": [
+        "python3",
+        "-m",
+        "sglang.launch_server",
+        "--model-path",
+        "fixture/long-context-moe",
+        "--tp",
+        "8",
+        "--speculative-algorithm",
+        "DSPARK",
+        "--speculative-dspark-block-size",
+        "8"
+      ],
+      "experiment_id": "synthetic-v0516-spec-search",
+      "status": {
+        "healthy": true,
+        "correct": false,
+        "deterministic": true
+      },
+      "metrics": {
+        "ttft_ms": 105.0,
+        "tpot_ms": 2.8,
+        "output_throughput": 155.0,
+        "request_throughput": 1.8,
+        "peak_memory_gb": 153.0,
+        "acceptance_length": 5.4
+      },
+      "repeat_count": 3,
+      "artifacts": [
+        "synthetic/raw/dspark-wrong-output.json"
+      ]
+    },
+    {
+      "id": "eagle-sla-miss",
+      "baseline": false,
+      "algorithm": "EAGLE3",
+      "command": [
+        "python3",
+        "-m",
+        "sglang.launch_server",
+        "--model-path",
+        "fixture/long-context-moe",
+        "--tp",
+        "8",
+        "--speculative-algorithm",
+        "EAGLE3",
+        "--speculative-draft-model-path",
+        "fixture/eagle3-draft",
+        "--speculative-num-steps",
+        "5",
+        "--speculative-eagle-topk",
+        "8",
+        "--speculative-num-draft-tokens",
+        "64"
+      ],
+      "experiment_id": "synthetic-v0516-spec-search",
+      "status": {
+        "healthy": true,
+        "correct": true,
+        "deterministic": true
+      },
+      "metrics": {
+        "ttft_ms": 115.0,
+        "tpot_ms": 5.1,
+        "output_throughput": 142.0,
+        "request_throughput": 1.7,
+        "peak_memory_gb": 158.0,
+        "acceptance_length": 4.8
+      },
+      "repeat_count": 3,
+      "artifacts": [
+        "synthetic/raw/eagle-sla-miss.json"
+      ]
+    },
+    {
+      "id": "mtp-low-latency",
+      "baseline": false,
+      "algorithm": "MTP",
+      "command": [
+        "python3",
+        "-m",
+        "sglang.launch_server",
+        "--model-path",
+        "fixture/long-context-moe",
+        "--tp",
+        "8",
+        "--speculative-algorithm",
+        "EAGLE",
+        "--speculative-num-steps",
+        "3",
+        "--speculative-eagle-topk",
+        "1",
+        "--speculative-num-draft-tokens",
+        "4"
+      ],
+      "experiment_id": "synthetic-v0516-spec-search",
+      "status": {
+        "healthy": true,
+        "correct": true,
+        "deterministic": true
+      },
+      "metrics": {
+        "ttft_ms": 118.0,
+        "tpot_ms": 3.4,
+        "output_throughput": 122.0,
+        "request_throughput": 1.45,
+        "peak_memory_gb": 149.0,
+        "acceptance_length": 3.1
+      },
+      "repeat_count": 3,
+      "artifacts": [
+        "synthetic/raw/mtp-low-latency.json"
+      ]
+    },
+    {
+      "id": "dspark-balanced",
+      "baseline": false,
+      "algorithm": "DSPARK",
+      "command": [
+        "python3",
+        "-m",
+        "sglang.launch_server",
+        "--model-path",
+        "fixture/long-context-moe",
+        "--tp",
+        "8",
+        "--speculative-algorithm",
+        "DSPARK",
+        "--speculative-dspark-block-size",
+        "4"
+      ],
+      "experiment_id": "synthetic-v0516-spec-search",
+      "status": {
+        "healthy": true,
+        "correct": true,
+        "deterministic": true
+      },
+      "metrics": {
+        "ttft_ms": 125.0,
+        "tpot_ms": 3.8,
+        "output_throughput": 138.0,
+        "request_throughput": 1.65,
+        "peak_memory_gb": 151.0,
+        "acceptance_length": 4.6
+      },
+      "repeat_count": 3,
+      "artifacts": [
+        "synthetic/raw/dspark-balanced.json"
+      ]
+    }
+  ]
+}
