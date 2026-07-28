@@ -146,5 +146,55 @@ class SchemaAndVersionTest(unittest.TestCase):
             self.mod.validate_profiles(document)
 
 
+class RuleMatchingTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.mod = load_module()
+
+    def test_crossing_rule_applies_only_when_upgrade_crosses_introduction(self) -> None:
+        rule = valid_rules()["rules"][0]
+
+        self.assertTrue(self.mod.rule_applies(rule, "v0.5.15", "v0.5.16"))
+        self.assertFalse(self.mod.rule_applies(rule, "v0.5.16", "v0.5.17"))
+
+    def test_target_rule_persists_until_fixed_version(self) -> None:
+        rule = valid_rules()["rules"][0]
+        rule["applies"] = {
+            "mode": "target",
+            "introduced_in": "v0.5.16",
+            "fixed_in": "v0.5.18",
+        }
+
+        self.assertTrue(self.mod.rule_applies(rule, "v0.5.16", "v0.5.17"))
+        self.assertFalse(self.mod.rule_applies(rule, "v0.5.17", "v0.5.18"))
+
+    def test_all_predicates_must_match(self) -> None:
+        profile = valid_profiles()["profiles"][0]
+        profile["env"]["SGLANG_TEST_MODE"] = "compact"
+        profile["imports"] = ["sglang.jit_kernel.fast_op"]
+        profile["features"] = ["breakable_prefill_cuda_graph"]
+        rule = valid_rules()["rules"][0]
+        rule["match"]["all"] = [
+            {"kind": "hardware", "equals": "b200"},
+            {"kind": "topology", "name": "tp", "min": 8},
+            {"kind": "feature", "value": "breakable_prefill_cuda_graph"},
+            {"kind": "env", "name": "SGLANG_TEST_MODE", "equals": "compact"},
+            {"kind": "import_prefix", "value": "sglang.jit_kernel"},
+            {"kind": "argv_value", "name": "--tp", "equals": "8"},
+        ]
+
+        self.assertTrue(self.mod.rule_matches(rule, profile))
+        profile["features"] = []
+        self.assertFalse(self.mod.rule_matches(rule, profile))
+
+    def test_unset_optional_predicate_does_not_match(self) -> None:
+        profile = valid_profiles()["profiles"][0]
+        rule = valid_rules()["rules"][0]
+        rule["match"]["all"] = [
+            {"kind": "integration", "value": "diffusion_rollout"}
+        ]
+
+        self.assertFalse(self.mod.rule_matches(rule, profile))
+
+
 if __name__ == "__main__":
     unittest.main()

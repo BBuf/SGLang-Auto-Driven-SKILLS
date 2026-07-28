@@ -219,3 +219,85 @@ def validate_rules(document: dict[str, Any]) -> None:
             if transform.get("kind") not in VALID_TRANSFORMS:
                 raise ValueError(f"{rule_id}: unknown transform")
         _require_string_list(rule.get("canaries", []), f"{rule_id}.canaries")
+
+
+def rule_applies(
+    rule: dict[str, Any],
+    current: str,
+    target: str,
+) -> bool:
+    current_version = parse_version(current)
+    target_version = parse_version(target)
+    introduced = parse_version(rule["applies"]["introduced_in"])
+    fixed_text = rule["applies"].get("fixed_in")
+    if fixed_text is not None and target_version >= parse_version(fixed_text):
+        return False
+    mode = rule["applies"].get("mode", "crossing")
+    if mode == "target":
+        return target_version >= introduced
+    return current_version < introduced <= target_version
+
+
+def _flag_index(argv: list[str], name: str) -> int | None:
+    try:
+        return argv.index(name)
+    except ValueError:
+        return None
+
+
+def _predicate_matches(
+    predicate: dict[str, Any],
+    profile: dict[str, Any],
+) -> bool:
+    kind = predicate["kind"]
+    if kind == "argv_flag":
+        return _flag_index(profile["argv"], predicate["name"]) is not None
+    if kind == "argv_value":
+        index = _flag_index(profile["argv"], predicate["name"])
+        return (
+            index is not None
+            and index + 1 < len(profile["argv"])
+            and profile["argv"][index + 1] == predicate["equals"]
+        )
+    if kind == "env":
+        value = profile.get("env", {}).get(predicate["name"])
+        if "equals" in predicate:
+            return value == predicate["equals"]
+        return value is not None
+    if kind in {"feature", "guarantee", "integration"}:
+        collection_name = {
+            "feature": "features",
+            "guarantee": "guarantees",
+            "integration": "integrations",
+        }[kind]
+        return predicate["value"] in profile.get(collection_name, [])
+    if kind == "import_prefix":
+        prefix = predicate["value"]
+        return any(
+            value == prefix or value.startswith(prefix + ".")
+            for value in profile.get("imports", [])
+        )
+    if kind in {"model_family", "quantization", "hardware"}:
+        return profile.get(kind) == predicate["equals"]
+    if kind == "topology":
+        value = profile.get("topology", {}).get(predicate["name"])
+        if not isinstance(value, int) or isinstance(value, bool):
+            return False
+        if "equals" in predicate and value != predicate["equals"]:
+            return False
+        if "min" in predicate and value < predicate["min"]:
+            return False
+        if "max" in predicate and value > predicate["max"]:
+            return False
+        return True
+    raise ValueError(f"unsupported predicate: {kind}")
+
+
+def rule_matches(
+    rule: dict[str, Any],
+    profile: dict[str, Any],
+) -> bool:
+    return all(
+        _predicate_matches(predicate, profile)
+        for predicate in rule["match"]["all"]
+    )
