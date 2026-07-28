@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 VERSION_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:\.post(\d+))?$")
 VALID_SEVERITIES = {
     "blocker",
@@ -91,16 +90,12 @@ def validate_profiles(document: dict[str, Any]) -> None:
     current_text = _require_string(
         audit.get("current_version"), "audit.current_version"
     )
-    target_text = _require_string(
-        audit.get("target_version"), "audit.target_version"
-    )
+    target_text = _require_string(audit.get("target_version"), "audit.target_version")
     current = parse_version(current_text)
     target = parse_version(target_text)
     if current >= target:
         raise ValueError("target_version must be newer than current_version")
-    _require_string_list(
-        audit.get("required_canaries", []), "audit.required_canaries"
-    )
+    _require_string_list(audit.get("required_canaries", []), "audit.required_canaries")
 
     profiles = document.get("profiles")
     if not isinstance(profiles, list) or not profiles:
@@ -128,9 +123,7 @@ def validate_profiles(document: dict[str, Any]) -> None:
                 raise ValueError(f"{profile_id}: env values must be strings")
         for field in ("model_family", "quantization", "hardware"):
             _require_string(profile.get(field), f"{profile_id}.{field}")
-        topology = _require_mapping(
-            profile.get("topology"), f"{profile_id}.topology"
-        )
+        topology = _require_mapping(profile.get("topology"), f"{profile_id}.topology")
         for name, value in topology.items():
             if (
                 not isinstance(name, str)
@@ -186,15 +179,11 @@ def validate_rules(document: dict[str, Any]) -> None:
         if applies.get("mode", "crossing") not in VALID_APPLICABILITY_MODES:
             raise ValueError(f"{rule_id}: invalid applicability mode")
         introduced = parse_version(
-            _require_string(
-                applies.get("introduced_in"), f"{rule_id}.introduced_in"
-            )
+            _require_string(applies.get("introduced_in"), f"{rule_id}.introduced_in")
         )
         fixed_text = applies.get("fixed_in")
         if fixed_text is not None:
-            fixed = parse_version(
-                _require_string(fixed_text, f"{rule_id}.fixed_in")
-            )
+            fixed = parse_version(_require_string(fixed_text, f"{rule_id}.fixed_in"))
             if fixed <= introduced:
                 raise ValueError(f"{rule_id}.fixed_in must follow introduced_in")
 
@@ -203,9 +192,7 @@ def validate_rules(document: dict[str, Any]) -> None:
         if not isinstance(predicates, list) or not predicates:
             raise ValueError(f"{rule_id}: match.all must be a non-empty array")
         for predicate_value in predicates:
-            predicate = _require_mapping(
-                predicate_value, f"{rule_id}.match predicate"
-            )
+            predicate = _require_mapping(predicate_value, f"{rule_id}.match predicate")
             if predicate.get("kind") not in VALID_PREDICATES:
                 raise ValueError(f"{rule_id}: unknown predicate")
 
@@ -213,9 +200,7 @@ def validate_rules(document: dict[str, Any]) -> None:
         if not isinstance(transforms, list):
             raise ValueError(f"{rule_id}.transforms must be an array")
         for transform_value in transforms:
-            transform = _require_mapping(
-                transform_value, f"{rule_id}.transform"
-            )
+            transform = _require_mapping(transform_value, f"{rule_id}.transform")
             if transform.get("kind") not in VALID_TRANSFORMS:
                 raise ValueError(f"{rule_id}: unknown transform")
         _require_string_list(rule.get("canaries", []), f"{rule_id}.canaries")
@@ -298,8 +283,7 @@ def rule_matches(
     profile: dict[str, Any],
 ) -> bool:
     return all(
-        _predicate_matches(predicate, profile)
-        for predicate in rule["match"]["all"]
+        _predicate_matches(predicate, profile) for predicate in rule["match"]["all"]
     )
 
 
@@ -359,9 +343,7 @@ def apply_transforms(
                     f"invalid removal arity for {transform['name']}: {arity}"
                 )
             if index + arity >= len(rewritten_argv):
-                raise ValueError(
-                    f"missing value for removal of {transform['name']}"
-                )
+                raise ValueError(f"missing value for removal of {transform['name']}")
             del rewritten_argv[index : index + arity + 1]
         elif kind == "replace_value":
             index = _single_flag_index(rewritten_argv, transform["flag"])
@@ -371,17 +353,17 @@ def apply_transforms(
                 )
             actual = rewritten_argv[index + 1]
             if actual != transform["from"]:
-                raise ValueError(
-                    f"unexpected value for {transform['flag']}: {actual}"
-                )
+                raise ValueError(f"unexpected value for {transform['flag']}: {actual}")
             rewritten_argv[index + 1] = transform["to"]
         elif kind == "replace_import_prefix":
             source = transform["from"]
             target = transform["to"]
             rewritten_imports = [
-                target + value[len(source) :]
-                if value == source or value.startswith(source + ".")
-                else value
+                (
+                    target + value[len(source) :]
+                    if value == source or value.startswith(source + ".")
+                    else value
+                )
                 for value in rewritten_imports
             ]
     return rewritten_argv, rewritten_imports
@@ -425,9 +407,7 @@ def audit(
     target = audit_contract["target_version"]
     base_canaries = set(audit_contract.get("required_canaries", []))
     applicable_rules = [
-        rule
-        for rule in rules_document["rules"]
-        if rule_applies(rule, current, target)
+        rule for rule in rules_document["rules"] if rule_applies(rule, current, target)
     ]
 
     profile_results: list[dict[str, Any]] = []
@@ -610,9 +590,7 @@ def render_markdown(result: dict[str, Any]) -> str:
             "- Missing/failing: "
             + _cell(", ".join(profile["missing_or_failing_canaries"]) or "none")
         )
-        rollbacks = sorted(
-            {finding["rollback"] for finding in profile["findings"]}
-        )
+        rollbacks = sorted({finding["rollback"] for finding in profile["findings"]})
         if rollbacks:
             lines.extend(f"- Rollback: {_cell(rollback)}" for rollback in rollbacks)
         else:
