@@ -301,3 +301,87 @@ def rule_matches(
         _predicate_matches(predicate, profile)
         for predicate in rule["match"]["all"]
     )
+
+
+def _transform_key(transform: dict[str, Any]) -> tuple[str, str]:
+    kind = transform["kind"]
+    if kind == "rename_flag":
+        return "argv_flag", transform["from"]
+    if kind == "remove_flag":
+        return "argv_flag", transform["name"]
+    if kind == "replace_value":
+        return "argv_flag", transform["flag"]
+    return "import_prefix", transform["from"]
+
+
+def detect_transform_conflicts(transforms: list[dict[str, Any]]) -> None:
+    seen: dict[tuple[str, str], str] = {}
+    for transform in transforms:
+        key = _transform_key(transform)
+        rendered = json.dumps(transform, sort_keys=True)
+        if key in seen and seen[key] != rendered:
+            raise ValueError(f"conflicting transformations for {key[1]}")
+        seen[key] = rendered
+
+
+def _single_flag_index(argv: list[str], name: str) -> int:
+    indices = [index for index, token in enumerate(argv) if token == name]
+    if not indices:
+        raise ValueError(f"flag not found for transformation: {name}")
+    if len(indices) != 1:
+        raise ValueError(f"flag {name} appears {len(indices)} times")
+    return indices[0]
+
+
+def apply_transforms(
+    argv: list[str],
+    imports: list[str],
+    transforms: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
+    detect_transform_conflicts(transforms)
+    rewritten_argv = list(argv)
+    rewritten_imports = list(imports)
+    applied_signatures: set[str] = set()
+    for transform in transforms:
+        signature = json.dumps(transform, sort_keys=True)
+        if signature in applied_signatures:
+            continue
+        applied_signatures.add(signature)
+        kind = transform["kind"]
+        if kind == "rename_flag":
+            index = _single_flag_index(rewritten_argv, transform["from"])
+            rewritten_argv[index] = transform["to"]
+        elif kind == "remove_flag":
+            index = _single_flag_index(rewritten_argv, transform["name"])
+            arity = transform.get("arity", 0)
+            if arity not in {0, 1}:
+                raise ValueError(
+                    f"invalid removal arity for {transform['name']}: {arity}"
+                )
+            if index + arity >= len(rewritten_argv):
+                raise ValueError(
+                    f"missing value for removal of {transform['name']}"
+                )
+            del rewritten_argv[index : index + arity + 1]
+        elif kind == "replace_value":
+            index = _single_flag_index(rewritten_argv, transform["flag"])
+            if index + 1 >= len(rewritten_argv):
+                raise ValueError(
+                    f"missing value for replacement of {transform['flag']}"
+                )
+            actual = rewritten_argv[index + 1]
+            if actual != transform["from"]:
+                raise ValueError(
+                    f"unexpected value for {transform['flag']}: {actual}"
+                )
+            rewritten_argv[index + 1] = transform["to"]
+        elif kind == "replace_import_prefix":
+            source = transform["from"]
+            target = transform["to"]
+            rewritten_imports = [
+                target + value[len(source) :]
+                if value == source or value.startswith(source + ".")
+                else value
+                for value in rewritten_imports
+            ]
+    return rewritten_argv, rewritten_imports

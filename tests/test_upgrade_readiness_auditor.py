@@ -196,5 +196,89 @@ class RuleMatchingTest(unittest.TestCase):
         self.assertFalse(self.mod.rule_matches(rule, profile))
 
 
+class TransformationTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.mod = load_module()
+
+    def test_rename_and_replace_value_are_token_level(self) -> None:
+        argv = [
+            "python3",
+            "-m",
+            "sglang.launch_server",
+            "--enable-deepep-waterfill",
+            "--fp4-gemm-backend",
+            "cutlass",
+        ]
+        transforms = [
+            {
+                "kind": "rename_flag",
+                "from": "--enable-deepep-waterfill",
+                "to": "--enable-waterfill",
+            },
+            {
+                "kind": "replace_value",
+                "flag": "--fp4-gemm-backend",
+                "from": "cutlass",
+                "to": "auto",
+            },
+        ]
+
+        rewritten, imports = self.mod.apply_transforms(argv, [], transforms)
+
+        self.assertEqual(
+            rewritten,
+            [
+                "python3",
+                "-m",
+                "sglang.launch_server",
+                "--enable-waterfill",
+                "--fp4-gemm-backend",
+                "auto",
+            ],
+        )
+        self.assertEqual(imports, [])
+
+    def test_remove_flag_respects_arity(self) -> None:
+        rewritten, _ = self.mod.apply_transforms(
+            ["server", "--removed", "value", "--keep"],
+            [],
+            [{"kind": "remove_flag", "name": "--removed", "arity": 1}],
+        )
+
+        self.assertEqual(rewritten, ["server", "--keep"])
+
+    def test_import_prefix_is_rewritten_without_touching_other_imports(self) -> None:
+        _, imports = self.mod.apply_transforms(
+            ["server"],
+            ["sglang.jit_kernel.fast_op", "torch"],
+            [
+                {
+                    "kind": "replace_import_prefix",
+                    "from": "sglang.jit_kernel",
+                    "to": "sglang.kernels",
+                }
+            ],
+        )
+
+        self.assertEqual(imports, ["sglang.kernels.fast_op", "torch"])
+
+    def test_conflicting_rewrites_are_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "conflicting transformations"):
+            self.mod.detect_transform_conflicts(
+                [
+                    {"kind": "rename_flag", "from": "--old", "to": "--new-a"},
+                    {"kind": "rename_flag", "from": "--old", "to": "--new-b"},
+                ]
+            )
+
+    def test_ambiguous_duplicate_flag_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "appears 2 times"):
+            self.mod.apply_transforms(
+                ["server", "--old", "--old"],
+                [],
+                [{"kind": "rename_flag", "from": "--old", "to": "--new"}],
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
