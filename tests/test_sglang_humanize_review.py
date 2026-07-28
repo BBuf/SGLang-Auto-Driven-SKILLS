@@ -1,16 +1,107 @@
 from __future__ import annotations
 
+import argparse
+import datetime as dt
 import gzip
+import importlib.util
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = ROOT / "skills" / "sglang-humanize-review"
+SCRIPTS = SKILL_ROOT / "scripts"
 CORPUS = SKILL_ROOT / "references" / "sglang-review-corpus.jsonl.gz"
 METADATA = SKILL_ROOT / "references" / "sglang-review-corpus.metadata.json"
-QUERY_SCRIPT = SKILL_ROOT / "scripts" / "query_sglang_review_corpus.py"
-SUMMARIZE_SCRIPT = SKILL_ROOT / "scripts" / "summarize_sglang_review_corpus.py"
+QUERY_SCRIPT = SCRIPTS / "query_sglang_review_corpus.py"
+SUMMARIZE_SCRIPT = SCRIPTS / "summarize_sglang_review_corpus.py"
+
+sys.path.insert(0, str(SCRIPTS))
+SPEC = importlib.util.spec_from_file_location(
+    "sglang_review_summarizer", SUMMARIZE_SCRIPT
+)
+assert SPEC and SPEC.loader
+SUMMARIZER = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = SUMMARIZER
+SPEC.loader.exec_module(SUMMARIZER)
+
+
+def _review_row(number: int) -> dict[str, object]:
+    return {
+        "row_type": "inline_review_thread",
+        "thread_id": f"thread-{number}",
+        "path": f"python/sglang/file_{number}.py",
+        "diff_hunk": "@@ -1 +1 @@\n-old\n+new",
+        "categories": ["correctness"],
+        "human_reviewer_comment_count": 1,
+        "agent_reviewer_comment_count": 0,
+        "pull_request": {
+            "number": number,
+            "title": f"Needle change {number}",
+            "created_at": "2026-07-01T00:00:00Z",
+        },
+        "comments": [
+            {
+                "kind": "inline_review_comment",
+                "body": f"needle review {number}",
+                "html_url": f"https://example.com/{number}",
+                "author": {"login": "human", "is_agent": False},
+            }
+        ],
+    }
+
+
+def test_summarizer_bounds_digest_payloads_and_streams_jsonl(
+    tmp_path: Path,
+) -> None:
+    corpus = tmp_path / "reviews.jsonl.gz"
+    with gzip.open(corpus, "wt", encoding="utf-8") as handle:
+        for number in range(1, 7):
+            handle.write(json.dumps(_review_row(number)) + "\n")
+
+    args = argparse.Namespace(
+        corpus=corpus,
+        path=[],
+        query=["needle"],
+        category=[],
+        kind="",
+        reviewer="",
+        batch_size=2,
+        top=2,
+        include_agent_reviewers=False,
+        excerpt_chars=320,
+        format="digest",
+    )
+    result = SUMMARIZER.sweep_corpus(args)
+
+    assert result.total_scanned == 6
+    assert result.matched_count == 6
+    assert len(result.top_matches) == 2
+
+    streamed = subprocess.run(
+        [
+            "python3",
+            str(SUMMARIZE_SCRIPT),
+            "--corpus",
+            str(corpus),
+            "--query",
+            "needle",
+            "--batch-size",
+            "2",
+            "--top",
+            "2",
+            "--format",
+            "jsonl",
+        ],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    streamed_rows = [json.loads(line) for line in streamed.stdout.splitlines()]
+    assert [row["pull_request"]["number"] for row in streamed_rows] == list(range(1, 7))
 
 
 def test_skill_points_to_corpus_and_review_workflow() -> None:
@@ -54,6 +145,10 @@ def test_metadata_covers_full_human_review_episode_corpus() -> None:
 
     assert metadata["schema_version"] >= 2
     assert metadata["source_years"] == [2024, 2026]
+    collected_through = dt.datetime.fromisoformat(metadata["collected_through"])
+    generated_at = dt.datetime.fromisoformat(metadata["generated_at"])
+    assert collected_through.year == 2026
+    assert collected_through <= generated_at
     assert metadata["pull_request_stats"]["included_human_prs"] >= 11000
     assert metadata["thread_count"] >= 10000
     assert metadata["human_reviewer_comment_count"] == metadata["comment_count"]

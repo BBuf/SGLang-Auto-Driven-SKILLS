@@ -1,6 +1,6 @@
 ---
 name: sglang-humanize-review
-description: "Perform SGLang code review in the style of human maintainers by consulting the full non-agent PR review episode corpus from project start through the latest refresh (June 2026), including inline review threads, top-level PR comments, review submissions, original multilingual text, and multi-round discussions. Use when reviewing SGLang PRs, diffs, patches, or local changes for correctness, tests, performance, GPU/runtime risks, API compatibility, and maintainability."
+description: "Perform SGLang code review in the style of human maintainers by consulting the full non-agent PR review episode corpus from project start through the latest refresh (July 2026), including inline review threads, top-level PR comments, review submissions, original multilingual text, and multi-round discussions. Use when reviewing SGLang PRs, diffs, patches, or local changes for correctness, tests, performance, GPU/runtime risks, API compatibility, and maintainability."
 ---
 
 # SGLang Humanize Review
@@ -16,7 +16,7 @@ reviewer can see how the diff actually runs before reading any findings. See
 [PR Comprehension Diagram](#pr-comprehension-diagram).
 
 The bundled corpus is collected from `sgl-project/sglang` PRs from the first
-public PR through the latest refresh (June 2026), excluding PRs authored by bots
+public PR through the latest refresh (July 2026), excluding PRs authored by bots
 or obvious coding-agent accounts. The collector paginates every PR's full
 conversation and review history, so long multi-round discussions are captured in
 their entirety rather than truncated at the first 100 events. It is organized as
@@ -45,9 +45,9 @@ drill-downs.
 ### Exhaustive sweep + synthesis (run this first, for every review)
 
 `summarize_sglang_review_corpus.py` scans the **whole** corpus in
-memory-bounded segments, collects **every** thread relevant to the PR (not just
-the first N), and prints an aggregate over all matches plus the top relevance-
-ranked review opinions. Pass every touched path and the PR's risk keywords;
+memory-bounded segments, folds **every** relevant thread into the aggregate (not
+just the first N), and retains only the requested top relevance-ranked review
+opinions. Pass every touched path and the PR's risk keywords;
 `--path` and `--query` are repeatable and OR-combined.
 
 ```bash

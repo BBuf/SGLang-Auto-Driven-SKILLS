@@ -1182,6 +1182,7 @@ def summarize(
     repo: str,
     start_year: int,
     end_year: int,
+    collected_through: dt.datetime,
     include_agent_reviewers: bool,
 ) -> dict[str, Any]:
     category_counts: collections.Counter[str] = collections.Counter()
@@ -1216,10 +1217,11 @@ def summarize(
         "schema_version": 2,
         "repo": repo,
         "generated_at": iso_utc_now(),
+        "collected_through": collected_through.isoformat(),
         "source_years": [start_year, end_year],
         "collection_policy": {
             "pull_requests": "PR created_at within inclusive year range; bot and coding-agent PR authors excluded.",
-            "event_window": "Inline comments, PR conversation comments, and review submissions are also capped at end-year 12-31 23:59:59 UTC.",
+            "event_window": "Inline comments, PR conversation comments, and review submissions use an inclusive event window capped at collected_through.",
             "inline_review_comments": "GitHub pull review comments grouped by in_reply_to_id thread.",
             "pr_conversation_comments": "Top-level PR conversation comments from GitHub PullRequest comments, grouped by PR.",
             "review_submissions": "Pull request review submission bodies, grouped by PR. Empty approvals are skipped unless the review requested changes.",
@@ -1262,6 +1264,7 @@ def write_summary_markdown(
         "",
         f"- Repo: `{metadata['repo']}`",
         f"- Source PR years: `{metadata['source_years'][0]}` to `{metadata['source_years'][1]}` inclusive",
+        f"- Collected through (inclusive): `{metadata['collected_through']}`",
         f"- Generated at: `{metadata['generated_at']}`",
         f"- Corpus file: `{corpus_name}`",
         f"- Threads: `{metadata['thread_count']}`",
@@ -1436,6 +1439,7 @@ def main() -> int:
         args.repo,
         summary_start_year,
         end_dt.year,
+        end_dt,
         args.include_agent_reviewers,
     )
     metadata_path.write_text(

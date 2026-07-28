@@ -3,9 +3,9 @@
 
 Unlike query_sglang_review_corpus.py (which prints the first --limit matches in
 file order and stops), this scans the WHOLE corpus in memory-bounded segments,
-collects EVERY thread relevant to the PR under review, and emits an aggregate
-digest plus the top-ranked representative review opinions. Use it before writing
-a review so the findings are grounded in all relevant historical review
+folds EVERY thread relevant to the PR under review into an aggregate, and keeps
+only the requested top-ranked representative review opinions. Use it before
+writing a review so the findings are grounded in all relevant historical review
 behavior, not just the first few hits.
 
 Example:
@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import heapq
 import json
 from collections import Counter
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 # Reuse the matching/text helpers from the first-N query tool so the two stay
 # consistent in how a thread is read and rendered.
@@ -32,6 +34,22 @@ from query_sglang_review_corpus import (  # noqa: E402
     row_type_for_thread,
     thread_text,
 )
+
+TopMatch = tuple[float, int, list[str], dict[str, Any]]
+
+
+@dataclass
+class SweepResult:
+    total_scanned: int = 0
+    matched_count: int = 0
+    top_matches: list[TopMatch] = field(default_factory=list)
+    cat_counts: Counter[str] = field(default_factory=Counter)
+    path_counts: Counter[str] = field(default_factory=Counter)
+    reviewer_counts: Counter[str] = field(default_factory=Counter)
+    type_counts: Counter[str] = field(default_factory=Counter)
+    year_counts: Counter[str] = field(default_factory=Counter)
+    matched_comments: int = 0
+    matched_prs: set[Any] = field(default_factory=set)
 
 
 def parse_args() -> argparse.Namespace:
@@ -194,48 +212,61 @@ def render_thread(thread: dict[str, Any], hit_terms: list[str], width: int) -> s
     return "\n".join(lines)
 
 
-def main() -> int:
-    args = parse_args()
+def sweep_corpus(
+    args: argparse.Namespace,
+    emit_jsonl: Callable[[str], None] = print,
+) -> SweepResult:
+    """Scan all rows while retaining at most ``args.top`` full payloads."""
+    if args.batch_size <= 0:
+        raise ValueError("--batch-size must be greater than zero")
+    if args.top < 0:
+        raise ValueError("--top must be non-negative")
 
-    total_scanned = 0
-    matched: list[tuple[float, list[str], dict[str, Any]]] = []
-    cat_counts: Counter[str] = Counter()
-    path_counts: Counter[str] = Counter()
-    reviewer_counts: Counter[str] = Counter()
-    type_counts: Counter[str] = Counter()
-    year_counts: Counter[str] = Counter()
-    matched_comments = 0
-    matched_prs: set[Any] = set()
-
+    result = SweepResult()
+    serial = 0
     for segment in iter_segments(args.corpus, args.batch_size):
         for thread in segment:
-            total_scanned += 1
+            result.total_scanned += 1
             ok, score, hits = score_thread(thread, args, thread_text(thread).lower())
             if not ok:
                 continue
-            matched.append((score, hits, thread))
+            result.matched_count += 1
+            if args.format == "jsonl":
+                emit_jsonl(json.dumps(thread, ensure_ascii=False, sort_keys=True))
+            elif args.top:
+                candidate: TopMatch = (score, serial, hits, thread)
+                if len(result.top_matches) < args.top:
+                    heapq.heappush(result.top_matches, candidate)
+                elif candidate[:2] > result.top_matches[0][:2]:
+                    heapq.heapreplace(result.top_matches, candidate)
+            serial += 1
             for cat in thread.get("categories", []):
-                cat_counts[cat] += 1
+                result.cat_counts[cat] += 1
             if thread.get("path"):
-                path_counts[thread["path"]] += 1
-            type_counts[row_type_for_thread(thread)] += 1
+                result.path_counts[thread["path"]] += 1
+            result.type_counts[row_type_for_thread(thread)] += 1
             pr = thread.get("pull_request", {})
-            matched_prs.add(pr.get("number"))
-            year_counts[str(pr.get("created_at", ""))[:4] or "?"] += 1
+            result.matched_prs.add(pr.get("number"))
+            result.year_counts[str(pr.get("created_at", ""))[:4] or "?"] += 1
             for c in thread.get("comments", []):
                 if not c.get("author", {}).get("is_agent", False):
-                    matched_comments += 1
+                    result.matched_comments += 1
                     login = c.get("author", {}).get("login")
                     if login:
-                        reviewer_counts[login] += 1
+                        result.reviewer_counts[login] += 1
+    return result
 
-    matched.sort(key=lambda item: item[0], reverse=True)
 
+def main() -> int:
+    args = parse_args()
+    try:
+        result = sweep_corpus(args)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     if args.format == "jsonl":
-        for _, _, thread in matched:
-            print(json.dumps(thread, ensure_ascii=False, sort_keys=True))
         return 0
 
+    matched = sorted(result.top_matches, key=lambda item: item[:2], reverse=True)
     print("# SGLang review corpus sweep")
     print()
     print(
@@ -243,13 +274,13 @@ def main() -> int:
         f"category={args.category or '-'} kind={args.kind or '-'}"
     )
     print(
-        f"- Scanned **{total_scanned}** threads in segments of "
-        f"{args.batch_size}; matched **{len(matched)}** threads across "
-        f"**{len([p for p in matched_prs if p is not None])}** PRs, "
-        f"**{matched_comments}** human comments."
+        f"- Scanned **{result.total_scanned}** threads in segments of "
+        f"{args.batch_size}; matched **{result.matched_count}** threads across "
+        f"**{len([p for p in result.matched_prs if p is not None])}** PRs, "
+        f"**{result.matched_comments}** human comments."
     )
     print()
-    if not matched:
+    if not result.matched_count:
         print("No relevant historical review threads found. Widen --query/--path.")
         return 0
 
@@ -257,16 +288,16 @@ def main() -> int:
         return ", ".join(f"{k} ({v})" for k, v in counter.most_common(n)) or "-"
 
     print("## Aggregate over ALL matches")
-    print(f"- By type: {top(type_counts)}")
-    print(f"- By category: {top(cat_counts)}")
-    print(f"- Top paths: {top(path_counts)}")
-    print(f"- Top reviewers: {top(reviewer_counts)}")
-    print(f"- By PR year: {top(year_counts)}")
+    print(f"- By type: {top(result.type_counts)}")
+    print(f"- By category: {top(result.cat_counts)}")
+    print(f"- Top paths: {top(result.path_counts)}")
+    print(f"- Top reviewers: {top(result.reviewer_counts)}")
+    print(f"- By PR year: {top(result.year_counts)}")
     print()
-    shown = min(args.top, len(matched))
+    shown = len(matched)
     print(f"## Top {shown} most relevant review threads (read and summarize these)")
     print()
-    for score, hits, thread in matched[:shown]:
+    for score, _, hits, thread in matched:
         print(render_thread(thread, hits, args.excerpt_chars))
         print(f"- _relevance: {score:.1f}_")
         print()
