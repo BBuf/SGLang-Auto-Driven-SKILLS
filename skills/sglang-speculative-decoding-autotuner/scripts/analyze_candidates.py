@@ -367,3 +367,182 @@ def analyze(document: dict[str, Any]) -> dict[str, Any]:
         "recommendation": recommendation,
         "evaluations": evaluations,
     }
+
+
+def _cell(value: Any) -> str:
+    return str(value).replace("\n", "<br>").replace("|", "\\|")
+
+
+def _metric(value: Any) -> str:
+    if value is None:
+        return "unknown"
+    if isinstance(value, float):
+        return f"{value:.2f}"
+    return str(value)
+
+
+def _delta(value: Any) -> str:
+    if value is None:
+        return "unknown"
+    return f"{float(value):+.2f}"
+
+
+def render_markdown(result: dict[str, Any]) -> str:
+    experiment = result["experiment"]
+    lines = ["# SGLang Speculative Decoding Autotuner Report", ""]
+    if result["fixture"]:
+        lines.extend(
+            [
+                "> **SYNTHETIC FIXTURE:** These values demonstrate decision "
+                "logic; they are not GPU measurements.",
+                "",
+            ]
+        )
+
+    objective = experiment["objective"]
+    lines.extend(
+        [
+            "## Experiment",
+            "",
+            f"- ID: `{_cell(experiment['id'])}`",
+            f"- Model: `{_cell(experiment['model'])}` at "
+            f"`{_cell(experiment['model_revision'])}`",
+            f"- SGLang: `{_cell(experiment['sglang_revision'])}`",
+            f"- Hardware: `{_cell(experiment['hardware'])}`",
+            f"- Objective: `{_cell(objective['direction'])} "
+            f"{_cell(objective['primary'])}`",
+            f"- Minimum improvement: "
+            f"`{float(objective.get('minimum_improvement_percent', 0.0)):.2f}%`",
+            "",
+            "## Gate Results",
+            "",
+            "| Candidate | Algorithm | Result | Reasons |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for evaluation in result["evaluations"]:
+        reasons = ", ".join(evaluation["reasons"])
+        lines.append(
+            f"| `{_cell(evaluation['id'])}` | "
+            f"`{_cell(evaluation['algorithm'])}` | "
+            f"{'ACCEPTED' if evaluation['accepted'] else 'REJECTED'} | "
+            f"{_cell(reasons or 'none')} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Metrics and Baseline Deltas",
+            "",
+            "| Candidate | TTFT ms | Δ TTFT | TPOT ms | Δ TPOT | "
+            "Output tok/s | Δ Output tok/s | Peak GiB | Accept length |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for evaluation in result["evaluations"]:
+        metrics = evaluation["metrics"]
+        deltas = evaluation["baseline_deltas"]
+        lines.append(
+            f"| `{_cell(evaluation['id'])}` | "
+            f"{_metric(metrics.get('ttft_ms'))} | "
+            f"{_delta(deltas.get('ttft_ms'))} | "
+            f"{_metric(metrics.get('tpot_ms'))} | "
+            f"{_delta(deltas.get('tpot_ms'))} | "
+            f"{_metric(metrics.get('output_throughput'))} | "
+            f"{_delta(deltas.get('output_throughput'))} | "
+            f"{_metric(metrics.get('peak_memory_gb'))} | "
+            f"{_metric(metrics.get('acceptance_length'))} |"
+        )
+
+    lines.extend(["", "## Pareto Frontier", ""])
+    if result["pareto_frontier"]:
+        lines.extend(
+            f"- `{_cell(candidate_id)}`"
+            for candidate_id in result["pareto_frontier"]
+        )
+    else:
+        lines.append("- No safe speculative candidate reached the frontier.")
+
+    recommendation = result["recommendation"]
+    improvement = recommendation.get("improvement_percent")
+    lines.extend(
+        [
+            "",
+            "## Recommendation",
+            "",
+            f"- Status: `{_cell(recommendation['status'])}`",
+            f"- Candidate: "
+            f"`{_cell(recommendation.get('candidate_id') or 'none')}`",
+            f"- Primary-metric improvement: "
+            f"`{_metric(improvement)}%`",
+            "",
+            "## Candidate Commands",
+            "",
+        ]
+    )
+    for evaluation in result["evaluations"]:
+        lines.extend(
+            [
+                f"### `{_cell(evaluation['id'])}`",
+                "",
+                "```bash",
+                shlex.join(evaluation["command"]),
+                "```",
+                "",
+                "Artifacts:",
+            ]
+        )
+        if evaluation["artifacts"]:
+            lines.extend(
+                f"- `{_cell(artifact)}`" for artifact in evaluation["artifacts"]
+            )
+        else:
+            lines.append("- none")
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Revalidation and Rollback",
+            "",
+            "- Restart the selected candidate from a clean, run-owned server "
+            "process and repeat the baseline contract.",
+            "- Roll back to the recorded baseline command if health, correctness, "
+            "determinism, memory, or latency gates fail.",
+            "- Treat `no_safe_improvement` as a successful audit outcome; do not "
+            "force-enable speculative decoding.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Validate and rank measured SGLang speculative decoding candidates."
+        )
+    )
+    parser.add_argument("--input", required=True, type=Path)
+    parser.add_argument("--output-markdown", required=True, type=Path)
+    parser.add_argument("--output-json", required=True, type=Path)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        document = load_document(args.input)
+        result = analyze(document)
+        args.output_markdown.write_text(render_markdown(result), encoding="utf-8")
+        args.output_json.write_text(
+            json.dumps(result, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

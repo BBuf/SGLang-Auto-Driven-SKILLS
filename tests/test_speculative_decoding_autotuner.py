@@ -274,5 +274,100 @@ class CandidateDecisionTest(unittest.TestCase):
         )
 
 
+class ReportAndCliTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.mod = load_module()
+
+    def test_markdown_labels_fixture_and_explains_decision(self) -> None:
+        document = valid_document()
+        add_candidate(
+            document,
+            candidate_id="wrong-fast",
+            algorithm="DSPARK",
+            ttft_ms=80.0,
+            tpot_ms=2.0,
+            output_throughput=180.0,
+            correct=False,
+        )
+        add_candidate(
+            document,
+            candidate_id="mtp-safe",
+            algorithm="MTP",
+            ttft_ms=100.0,
+            tpot_ms=3.8,
+            output_throughput=125.0,
+        )
+
+        report = self.mod.render_markdown(self.mod.analyze(document))
+
+        self.assertIn("SYNTHETIC FIXTURE", report)
+        self.assertIn("## Gate Results", report)
+        self.assertIn("correctness_failed", report)
+        self.assertIn("## Metrics and Baseline Deltas", report)
+        self.assertIn("+25.00", report)
+        self.assertIn("## Pareto Frontier", report)
+        self.assertIn("## Recommendation", report)
+        self.assertIn("`mtp-safe`", report)
+        self.assertIn("python3 -m sglang.launch_server", report)
+        self.assertIn("examples/raw/baseline.json", report)
+
+    def test_cli_writes_markdown_and_json(self) -> None:
+        document = valid_document()
+        add_candidate(
+            document,
+            candidate_id="mtp-safe",
+            algorithm="MTP",
+            ttft_ms=100.0,
+            tpot_ms=3.8,
+            output_throughput=125.0,
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            input_path = root / "input.json"
+            markdown_path = root / "report.md"
+            json_path = root / "report.json"
+            input_path.write_text(json.dumps(document), encoding="utf-8")
+
+            exit_code = self.mod.main(
+                [
+                    "--input",
+                    str(input_path),
+                    "--output-markdown",
+                    str(markdown_path),
+                    "--output-json",
+                    str(json_path),
+                ]
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn(
+                "SYNTHETIC FIXTURE", markdown_path.read_text(encoding="utf-8")
+            )
+            result = json.loads(json_path.read_text(encoding="utf-8"))
+            self.assertEqual(result["schema_version"], 1)
+            self.assertEqual(
+                result["recommendation"]["candidate_id"], "mtp-safe"
+            )
+
+    def test_cli_returns_two_for_invalid_input(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            input_path = root / "input.json"
+            input_path.write_text("[]", encoding="utf-8")
+
+            exit_code = self.mod.main(
+                [
+                    "--input",
+                    str(input_path),
+                    "--output-markdown",
+                    str(root / "report.md"),
+                    "--output-json",
+                    str(root / "report.json"),
+                ]
+            )
+
+            self.assertEqual(exit_code, 2)
+
+
 if __name__ == "__main__":
     unittest.main()
