@@ -16,7 +16,7 @@ def test_readme_uses_current_claude_and_codex_launch_commands() -> None:
     assert "codex --yolo" not in readme
     assert "`opus`" in readme and "current Opus" in readme
     assert "bypassPermissions" in readme and "isolated" in readme
-    assert "core_skills-11" in readme
+    assert "core_skills-12" in readme
 
 
 def test_marketplace_has_top_level_description() -> None:
@@ -27,6 +27,20 @@ def test_marketplace_has_top_level_description() -> None:
     assert marketplace["description"]
     assert "LLM serving" in marketplace["description"]
     assert marketplace["plugins"][0]["description"]
+
+
+def test_speculative_decoding_autotuner_is_registered() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    plugin = json.loads(
+        (ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+    )
+    marketplace = json.loads(
+        (ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8")
+    )
+
+    assert "sglang-speculative-decoding-autotuner" in readme
+    assert "speculative decoding" in plugin["description"].lower()
+    assert "speculative" in marketplace["plugins"][0]["description"].lower()
 
 
 def test_precommit_versions_are_current_verified_tags() -> None:

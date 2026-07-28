@@ -2,15 +2,15 @@
 
 # AI-Infra-Auto-Driven-SKILLS
 
-**Agent-ready playbooks for LLM serving benchmarks, capacity planning,
-torch-profiler triage, pipeline analysis, compute simulation, SGLang/vLLM
-optimization, human code review, production incidents, and model PR
-intelligence.**
+**Agent-ready playbooks for LLM serving benchmarks, speculative decoding
+tuning, capacity planning, torch-profiler triage, pipeline analysis, compute
+simulation, SGLang/vLLM optimization, human code review, production incidents,
+and model PR intelligence.**
 
 [![GitHub stars](https://img.shields.io/github/stars/BBuf/AI-Infra-Auto-Driven-SKILLS?style=social)](https://github.com/BBuf/AI-Infra-Auto-Driven-SKILLS/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/BBuf/AI-Infra-Auto-Driven-SKILLS?style=social)](https://github.com/BBuf/AI-Infra-Auto-Driven-SKILLS/forks)
 [![Last commit](https://img.shields.io/github/last-commit/BBuf/AI-Infra-Auto-Driven-SKILLS?style=flat-square)](https://github.com/BBuf/AI-Infra-Auto-Driven-SKILLS/commits/main)
-[![Core skills](https://img.shields.io/badge/core_skills-11-2f80ed?style=flat-square)](#core-skills)
+[![Core skills](https://img.shields.io/badge/core_skills-12-2f80ed?style=flat-square)](#core-skills)
 [![PR histories](https://img.shields.io/badge/pr_histories-66-2ea44f?style=flat-square)](#model-pr-history-catalog)
 [![KDA-Pilot](https://img.shields.io/badge/sibling-KDA--Pilot-ff7b72?style=flat-square)](https://github.com/BBuf/KDA-Pilot)
 
@@ -20,10 +20,11 @@ This repository is built for AI infrastructure engineers who want agents to do
 real work, not recite generic prompts.
 
 It gives an agent the operational memory needed to benchmark SGLang, vLLM,
-TensorRT-LLM, and TokenSpeed fairly; explain serving capacity from startup logs;
-split prefill and decode profiler evidence; inspect traces at layer and kernel
-level; estimate operator FLOPs and MFU; review SGLang patches against real
-maintainer discussion patterns; run Humanize-governed SGLang and vLLM SOTA
+TensorRT-LLM, and TokenSpeed fairly; tune SGLang speculative decoding without
+sacrificing correctness or SLA gates; explain serving capacity from startup
+logs; split prefill and decode profiler evidence; inspect traces at layer and
+kernel level; estimate operator FLOPs and MFU; review SGLang patches against
+real maintainer discussion patterns; run Humanize-governed SGLang and vLLM SOTA
 loops; triage SGLang production incidents from a replay; and keep model-family
 optimization history close to the code that actually changed.
 
@@ -39,6 +40,7 @@ find it.
 | Skill | Use it when |
 | --- | --- |
 | [`llm-serving-auto-benchmark`](skills/llm-serving-auto-benchmark/) | You need a fair, bounded serving benchmark search for SGLang, vLLM, TensorRT-LLM, TokenSpeed, or another OpenAI-compatible stack. |
+| [`sglang-speculative-decoding-autotuner`](skills/sglang-speculative-decoding-autotuner/) | You need to compatibility-gate and benchmark baseline, MTP/EAGLE, DFlash, DSpark, or other revision-supported speculative paths, then select a safe Pareto-optimal configuration. |
 | [`llm-serving-capacity-planner`](skills/llm-serving-capacity-planner/) | You need to explain SGLang or vLLM startup memory, KV cache budget, request capacity, or OOM pressure from logs. |
 | [`llm-torch-profiler-analysis`](skills/llm-torch-profiler-analysis/) | You need a three-table profiler report that keeps `extend/prefill` and `decode` evidence separate. |
 | [`llm-pipeline-analysis`](skills/llm-pipeline-analysis/) | You need forward-pass, layer, and kernel-level timing from a torch profiler trace, including anchor boundaries and Perfetto ranges. |
@@ -128,6 +130,9 @@ The repo is opinionated about evidence because performance work gets noisy fast.
 - Benchmark rows should include model, framework, GPU count, workload, request
   rate or concurrency, SLA status, launch command, benchmark command, and raw
   artifacts.
+- Speculative decoding searches should prove compatibility against the selected
+  SGLang revision, keep a non-speculative baseline, and reject correctness,
+  determinism, memory, or SLA failures before ranking throughput.
 - Profiler reports should keep prefill and decode separate, then emit the same
   three tables: kernel table, overlap-opportunity table, and fuse-opportunity
   table.
@@ -169,7 +174,7 @@ installed as a single Claude Code plugin via the built-in marketplace flow:
 /reload-plugins
 ```
 
-After reload, the 12 skills appear namespaced as
+After reload, the 13 skills appear namespaced as
 `ai-infra-auto-driven-skills:<skill-name>` (for example
 `ai-infra-auto-driven-skills:sglang-sota-humanize-loop`). Update later with
 `/plugin marketplace update ai-infra-auto-driven-skills`.
@@ -186,6 +191,7 @@ cd AI-Infra-Auto-Driven-SKILLS
 
 mkdir -p ~/.claude/skills
 ln -s "$PWD/skills/llm-serving-auto-benchmark" ~/.claude/skills/llm-serving-auto-benchmark
+ln -s "$PWD/skills/sglang-speculative-decoding-autotuner" ~/.claude/skills/sglang-speculative-decoding-autotuner
 ln -s "$PWD/skills/llm-serving-capacity-planner" ~/.claude/skills/llm-serving-capacity-planner
 ln -s "$PWD/skills/llm-torch-profiler-analysis" ~/.claude/skills/llm-torch-profiler-analysis
 ln -s "$PWD/skills/llm-pipeline-analysis" ~/.claude/skills/llm-pipeline-analysis
@@ -201,6 +207,7 @@ ln -s "$PWD/model-pr-optimization-history" ~/.claude/skills/model-pr-history-kno
 
 Restart Claude Code after installing. The skills can then be invoked by name,
 for example `[$llm-serving-auto-benchmark]`,
+`[$sglang-speculative-decoding-autotuner]`,
 `[$llm-serving-capacity-planner]`, `[$llm-torch-profiler-analysis]`,
 `[$llm-pipeline-analysis]`, `[$model-compute-simulation]`,
 `[$model-pr-diff-dossier]`, `[$sglang-humanize-review]`,
@@ -218,6 +225,7 @@ directories into that runtime's skill directory:
 
 ```bash
 cp -R skills/llm-serving-auto-benchmark <agent-skill-dir>/llm-serving-auto-benchmark
+cp -R skills/sglang-speculative-decoding-autotuner <agent-skill-dir>/sglang-speculative-decoding-autotuner
 cp -R skills/llm-serving-capacity-planner <agent-skill-dir>/llm-serving-capacity-planner
 cp -R skills/llm-torch-profiler-analysis <agent-skill-dir>/llm-torch-profiler-analysis
 cp -R skills/llm-pipeline-analysis <agent-skill-dir>/llm-pipeline-analysis
@@ -262,6 +270,7 @@ correctness gates.
 ```text
 skills/
 ├── llm-serving-auto-benchmark/      # serving benchmark search and comparison
+├── sglang-speculative-decoding-autotuner/ # safe speculative config search
 ├── llm-serving-capacity-planner/     # startup memory and request capacity analysis
 ├── llm-torch-profiler-analysis/     # profiler capture and trace triage
 ├── llm-pipeline-analysis/           # forward/layer/kernel trace analysis
