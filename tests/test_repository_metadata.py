@@ -56,14 +56,16 @@ def test_marketplace_has_top_level_description() -> None:
     assert "Day-0" in plugin["description"]
 
 
-def test_diffusion_auto_optimize_skill_is_discoverable() -> None:
-    skill = ROOT / "skills" / "sglang-diffusion-auto-optimize" / "SKILL.md"
+def test_sol_engine_sglang_diffusion_skill_is_discoverable() -> None:
+    skill = ROOT / "skills" / "sol-engine-sglang-diffusion" / "SKILL.md"
+    removed = ROOT / "skills" / "sglang-diffusion-auto-optimize"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert skill.is_file()
+    assert not removed.exists()
     text = skill.read_text(encoding="utf-8")
-    assert "name: sglang-diffusion-auto-optimize" in text
-    assert "sgl-diffusion-engine launch" in text
-    assert "sglang-diffusion-auto-optimize" in readme
+    assert "name: sol-engine-sglang-diffusion" in text
+    assert "orchestration/run_orchestrated_experiment.py" in text
+    assert "sol-engine-sglang-diffusion" in readme
     assert "core_skills-13" in readme
 
 
@@ -115,7 +117,7 @@ def test_refresh_prompt_is_pr_agnostic_and_preserves_evidence_gates() -> None:
         assert required in prompt
 
 
-def test_sglang_diffusion_engine_is_discoverable() -> None:
+def test_legacy_sglang_diffusion_engine_is_documented_but_not_the_skill_backend() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     engine_readme = (ROOT / "sgl-engine-sglang-diffusion" / "README.md").read_text(
         encoding="utf-8"
@@ -127,9 +129,10 @@ def test_sglang_diffusion_engine_is_discoverable() -> None:
         "sgl-diffusion-engine run",
         "sgl-diffusion-engine resume",
         "sglang.patch",
-        "--agent-optimization",
         "Sol-Engine",
         "KDA-Pilot",
         "FastVideo",
+        "sol-engine-sglang-diffusion",
+        "does not\ninvoke this package",
     ]:
         assert required in engine_readme
