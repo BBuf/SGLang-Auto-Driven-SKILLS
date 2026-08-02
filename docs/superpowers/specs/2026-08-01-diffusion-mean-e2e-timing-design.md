@@ -115,6 +115,6 @@ prompts and command unchanged.
 ## Delivery
 
 Publish the implementation as a pull request, wait for required checks, squash
-merge it, reinstall the merged `sglang-diffusion-auto-optimize` skill locally,
-and update `/Users/bbuf/工作目录/Common/prompt.md` to the merged
+merge it, reinstall the then-current diffusion optimization skill locally, and
+update `/Users/bbuf/工作目录/Common/prompt.md` to the merged
 Controller revision and per-request-mean wording.

@@ -249,8 +249,8 @@ advance the lane queue, and progress has exactly one running row.
 - Modify: `sgl-engine-sglang-diffusion/src/sgl_engine_sglang_diffusion/profiler.py`
 - Modify: `sgl-engine-sglang-diffusion/src/sgl_engine_sglang_diffusion/runtime.py`
 - Modify: `sgl-engine-sglang-diffusion/techniques/kernel.md`
-- Modify: `skills/sglang-diffusion-auto-optimize/SKILL.md`
-- Modify: `skills/sglang-diffusion-auto-optimize/references/progress-contract.md`
+- Modify: the retired diffusion skill's `SKILL.md`
+- Modify: the retired diffusion skill's progress contract
 - Test: `sgl-engine-sglang-diffusion/tests/test_profiler.py`
 - Test: `sgl-engine-sglang-diffusion/tests/test_runtime_scheduler.py`
 
@@ -289,7 +289,7 @@ required lanes remain scheduled.
 
 **Files:**
 
-- Validate: `skills/sglang-diffusion-auto-optimize/`
+- Validate: the retired diffusion skill directory
 - Validate: `sgl-engine-sglang-diffusion/`
 
 - [ ] **Step 1: Run formatting and the complete suite**
@@ -310,7 +310,7 @@ Run:
 
 ```bash
 python /Users/bbuf/.codex/skills/.system/skill-creator/scripts/quick_validate.py \
-  skills/sglang-diffusion-auto-optimize
+  <retired-diffusion-skill-dir>
 ```
 
 Expected: `Skill is valid!`

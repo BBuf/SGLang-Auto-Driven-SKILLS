@@ -175,8 +175,8 @@ Expected: Controller and E2E tests pass using mean latency throughout.
 - Modify: `sgl-engine-sglang-diffusion/README.md`
 - Modify: `sgl-engine-sglang-diffusion/prompts/executor.md`
 - Modify: `sgl-engine-sglang-diffusion/prompts/master.md`
-- Modify: `skills/sglang-diffusion-auto-optimize/SKILL.md`
-- Modify: `skills/sglang-diffusion-auto-optimize/references/progress-contract.md`
+- Modify: the retired diffusion skill's `SKILL.md`
+- Modify: the retired diffusion skill's progress contract
 - Modify after merge: `/Users/bbuf/工作目录/Common/prompt.md`
 
 - [ ] **Step 1: Replace ambiguous total-latency language**
@@ -188,7 +188,7 @@ five prompts remain mandatory, and speedups are never accumulated.
 
 ```bash
 rg -n "baseline_total_s|candidate_total_s|integrated_total_s|frozen_baseline_total_s|total_s" \
-  sgl-engine-sglang-diffusion skills/sglang-diffusion-auto-optimize
+  sgl-engine-sglang-diffusion <retired-diffusion-skill-dir>
 ```
 
 Expected: only explicitly documented obsolete-schema rejection or unrelated

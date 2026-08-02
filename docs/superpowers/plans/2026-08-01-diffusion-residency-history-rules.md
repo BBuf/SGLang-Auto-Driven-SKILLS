@@ -119,8 +119,8 @@
 - Modify: `sgl-engine-sglang-diffusion/README.md`
 - Modify: `sgl-engine-sglang-diffusion/prompts/executor.md`
 - Modify: `sgl-engine-sglang-diffusion/prompts/master.md`
-- Modify: `sglang-diffusion-auto-optimize/SKILL.md`
-- Modify: `sglang-diffusion-auto-optimize/references/progress-contract.md`
+- Modify: the retired diffusion skill's `SKILL.md`
+- Modify: the retired diffusion skill's progress contract
 - Modify related skill references discovered by search.
 
 **Steps:**
@@ -149,7 +149,7 @@
 **Files:**
 
 - Modify outside the repository: `/Users/bbuf/工作目录/Common/prompt.md`
-- Replace installed skill: `/Users/bbuf/.codex/skills/sglang-diffusion-auto-optimize`
+- Replace the locally installed retired diffusion skill.
 
 **Steps:**
 

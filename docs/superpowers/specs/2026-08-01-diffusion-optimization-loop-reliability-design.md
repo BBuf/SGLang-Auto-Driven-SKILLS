@@ -9,9 +9,9 @@ contract executable, resuming the same Codex thread, bounding repeated
 infrastructure failures, and allowing high-leverage lanes to proceed.
 
 The public repository contains two separate skills. `sglang-humanize-review`
-reviews SGLang changes; `sglang-diffusion-auto-optimize` owns this optimization
-flow. The implementation and user-facing changes therefore belong to the
-diffusion skill and its adjacent Python controller.
+reviews SGLang changes; the now-retired diffusion optimization skill owned this
+optimization flow. The implementation and user-facing changes therefore
+belonged to that skill and its adjacent Python controller.
 
 ## Success Criteria
 

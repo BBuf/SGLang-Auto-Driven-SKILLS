@@ -58,15 +58,26 @@ def test_marketplace_has_top_level_description() -> None:
 
 def test_sol_engine_sglang_diffusion_skill_is_discoverable() -> None:
     skill = ROOT / "skills" / "sol-engine-sglang-diffusion" / "SKILL.md"
-    removed = ROOT / "skills" / "sglang-diffusion-auto-optimize"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert skill.is_file()
-    assert not removed.exists()
+    assert not list((ROOT / "skills").glob("*diffusion*auto*optimize*"))
     text = skill.read_text(encoding="utf-8")
     assert "name: sol-engine-sglang-diffusion" in text
     assert "orchestration/run_orchestrated_experiment.py" in text
     assert "sol-engine-sglang-diffusion" in readme
     assert "core_skills-13" in readme
+
+
+def test_retired_diffusion_skill_name_is_absent_from_current_tree() -> None:
+    retired_name = "-".join(("sglang", "diffusion", "auto", "optimize"))
+    text_suffixes = {".json", ".md", ".py", ".toml", ".yaml", ".yml"}
+    for path in ROOT.rglob("*"):
+        if (
+            path.is_file()
+            and path.suffix in text_suffixes
+            and ".git" not in path.parts
+        ):
+            assert retired_name not in path.read_text(encoding="utf-8")
 
 
 def test_precommit_versions_are_current_verified_tags() -> None:

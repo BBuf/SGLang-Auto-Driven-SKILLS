@@ -159,8 +159,8 @@ human-auditable source for the compact TOML rules.
 ## Delivery
 
 Publish the implementation as a draft PR, wait for CI, merge it using the
-repository's squash convention, reinstall the merged
-`sglang-diffusion-auto-optimize` skill locally, and verify the installed files
-match the merge commit. Separately update `/Users/bbuf/工作目录/Common/prompt.md`
+repository's squash convention, reinstall the then-current diffusion
+optimization skill locally, and verify the installed files match the merge
+commit. Separately update `/Users/bbuf/工作目录/Common/prompt.md`
 so every target, explanation, request value, idempotency key, and completion
 condition uses 5.00x instead of 3.00x.

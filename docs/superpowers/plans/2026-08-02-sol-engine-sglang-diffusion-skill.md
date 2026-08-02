@@ -3,10 +3,10 @@
 > Implement the approved thin-adapter design without changing the existing
 > standalone controller or any upstream Sol decision logic.
 
-**Goal:** Replace `sglang-diffusion-auto-optimize` with an installable
-`sol-engine-sglang-diffusion` skill that feeds pinned KDA-Pilot/SGLang
-knowledge into upstream Sol Engine and exports a validated patch against the
-SGLang main commit frozen at launch.
+**Goal:** Replace the retired custom diffusion optimization skill with an
+installable `sol-engine-sglang-diffusion` skill that feeds pinned
+KDA-Pilot/SGLang knowledge into upstream Sol Engine and exports a validated
+patch against the SGLang main commit frozen at launch.
 
 **Architecture:** The skill resolves and pins upstream Sol Engine and SGLang,
 adds a campaign-local SGLang model adapter, injects lane-specific knowledge
@@ -22,7 +22,7 @@ standard-library tools, tested with synthetic local Git repositories.
 
 **Files:**
 
-- Delete: `skills/sglang-diffusion-auto-optimize/`
+- Delete: the retired custom diffusion skill directory
 - Create: `skills/sol-engine-sglang-diffusion/SKILL.md`
 - Create: `skills/sol-engine-sglang-diffusion/agents/openai.yaml`
 - Create: `skills/sol-engine-sglang-diffusion/references/sol-boundary.md`

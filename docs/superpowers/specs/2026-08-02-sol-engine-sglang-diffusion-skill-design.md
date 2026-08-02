@@ -2,11 +2,12 @@
 
 ## Purpose
 
-Replace `sglang-diffusion-auto-optimize` with a thin integration skill that
-runs the complete upstream Sol Engine campaign for SGLang Diffusion. The skill
-adds domain knowledge and a model adapter, but it does not fork, reproduce, or
-override Sol's orchestration strategy, technique registry, Executor/Master
-contracts, verification, quality judgments, or termination behavior.
+Replace the retired custom diffusion optimization skill with a thin integration
+skill that runs the complete upstream Sol Engine campaign for SGLang Diffusion.
+The skill adds domain knowledge and a model adapter, but it does not fork,
+reproduce, or override Sol's orchestration strategy, technique registry,
+Executor/Master contracts, verification, quality judgments, or termination
+behavior.
 
 The only final source deliverable is an apply-checkable patch against the
 SGLang `main` commit fetched and frozen at campaign launch.

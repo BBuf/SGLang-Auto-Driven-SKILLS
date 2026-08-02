@@ -26,7 +26,7 @@ execution, Git worktrees, gzip/JSON trace parsing, pytest, ruff.
 
 - Restore changes removed by commit `2e17b7a` under
   `sgl-engine-sglang-diffusion/` and
-  `skills/sglang-diffusion-auto-optimize/`.
+  the retired diffusion skill directory.
 - Preserve `sgl-engine-sglang-diffusion/src/sgl_engine_sglang_diffusion/patcher.py`
   and the model-root placement behavior already present on current `main`.
 
@@ -58,7 +58,7 @@ guard is gone. No command invokes Sol-Engine's full campaign entry point.
 
 ```bash
 git add README.md sgl-engine-sglang-diffusion \
-  skills/sglang-diffusion-auto-optimize
+  <retired-diffusion-skill-dir>
 git commit -m "refactor: restore agentic diffusion optimization flow"
 ```
 
@@ -350,9 +350,9 @@ pytest -q tests/test_verifier.py tests/test_orchestration.py -k quality
 
 - Modify: `sgl-engine-sglang-diffusion/README.md`
 - Modify: `sgl-engine-sglang-diffusion/examples/goal.yaml`
-- Modify: `skills/sglang-diffusion-auto-optimize/SKILL.md`
-- Modify: `skills/sglang-diffusion-auto-optimize/references/progress-contract.md`
-- Modify: `skills/sglang-diffusion-auto-optimize/references/remote-ownership.md`
+- Modify: the retired diffusion skill's `SKILL.md`
+- Modify: the retired diffusion skill's progress contract
+- Modify: the retired diffusion skill's remote-ownership contract
 - Modify: root `README.md` where discovery commands are listed.
 - Test: `sgl-engine-sglang-diffusion/tests/test_cli.py`
 - Test: `sgl-engine-sglang-diffusion/tests/test_launcher.py`
@@ -368,7 +368,7 @@ Run:
 ```bash
 pytest -q tests/test_cli.py tests/test_launcher.py
 rg -n -- "--performance-mode speed" README.md examples \
-  ../skills/sglang-diffusion-auto-optimize
+  <retired-diffusion-skill-dir>
 ```
 
 Expected: the forbidden example flag is absent unless explicitly presented as
@@ -400,9 +400,9 @@ and record that boundary in the pull request.
 git diff --check origin/main...HEAD
 git diff --stat origin/main...HEAD
 rg -n "Sol-Engine|sol-engine" sgl-engine-sglang-diffusion \
-  skills/sglang-diffusion-auto-optimize
+  <retired-diffusion-skill-dir>
 rg -n -- "--performance-mode speed" sgl-engine-sglang-diffusion \
-  skills/sglang-diffusion-auto-optimize
+  <retired-diffusion-skill-dir>
 git status --short
 ```
 
