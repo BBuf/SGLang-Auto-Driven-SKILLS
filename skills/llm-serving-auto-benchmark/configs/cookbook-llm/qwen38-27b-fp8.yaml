@@ -1,22 +1,22 @@
 schema_version: 1
 source:
   kind: llm_serving_cookbook
-  source_recipe_file: sglang/docs_new/src/snippets/autoregressive/qwen36-deployment.jsx
+  source_recipe_file: sglang/docs/src/snippets/configs/Qwen/qwen3.8-27b.jsx
   recorded_heads:
     sglang: eec794bce0808ae26cc1dcb84a56b65d2df82af5
     vllm: bbe8b23e1a2b32a96240b27f63255170d09ef144
     tensorrt_llm: da38c1d2e0dffd073b7dfb6d69e15ee7b45d84a9
     tokenspeed: 2706143a8669d50a8f56466b9d340b86922b8f2d
-  translation: The enabled SGLang section preserves the current B200
-    single-GPU FP8 recipe. Other frameworks stay disabled because the exact
-    FP8 checkpoint contract was not verified at their recorded heads.
+  translation: The enabled SGLang section copies the public H200 single-GPU
+    FP8 cell. Other frameworks stay disabled because this refresh did not
+    re-verify a matching four-framework contract.
 model:
-  name: Qwen/Qwen3.6-35B-A3B-FP8
-  tokenizer: Qwen/Qwen3.6-35B-A3B-FP8
+  name: Qwen/Qwen3.8-27B-FP8
+  tokenizer: Qwen/Qwen3.8-27B-FP8
   precision: fp8
   quantization: model default
 hardware:
-  accelerator: NVIDIA B200
+  accelerator: NVIDIA H200
   gpu_count: 1
   multi_node: false
 dataset:
@@ -34,7 +34,7 @@ dataset:
 benchmark:
   endpoint: /v1/chat/completions
   backend: openai-compatible
-  tokenizer: Qwen/Qwen3.6-35B-A3B-FP8
+  tokenizer: Qwen/Qwen3.8-27B-FP8
   max_concurrency:
   - null
   - 8
@@ -49,7 +49,7 @@ benchmark:
     max_p50_ttft_ms: 1500
     max_p50_tpot_ms: 30
     min_success_rate: 0.99
-  output_dir: ./auto_benchmark_results/cookbook-llm/qwen36-35b-a3b-fp8
+  output_dir: ./auto_benchmark_results/cookbook-llm/qwen38-27b-fp8
 search:
   tier: 2
   max_candidates_per_framework: 6
@@ -60,20 +60,23 @@ frameworks:
     enabled: true
     support_status: verified_at_recorded_head
     server_command: python -m sglang.launch_server
-    config_source: sglang_qwen36_b200_verified_recipe
+    config_source: sglang_qwen38_27b_h200_public_recipe
     base_server_flags:
-      model_path: Qwen/Qwen3.6-35B-A3B-FP8
-      tp_size: 1
-      attention_backend: trtllm_mha
+      model_path: Qwen/Qwen3.8-27B-FP8
+      trust_remote_code: true
+      kv_cache_dtype: fp8_e4m3
+      mem_fraction_static: 0.85
+      attention_backend: flashinfer
+      chunked_prefill_size: 32768
+      max_prefill_tokens: 32768
       reasoning_parser: qwen3
       tool_call_parser: qwen3_coder
-      mem_fraction_static: 0.8
       host: 0.0.0.0
       port: 30000
     search_space:
       chunked_prefill_size:
-      - 4096
       - 8192
+      - 32768
       max_running_requests:
       - 8
       - 16

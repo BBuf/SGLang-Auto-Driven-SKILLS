@@ -11,7 +11,7 @@ and model PR intelligence.**
 [![GitHub forks](https://img.shields.io/github/forks/BBuf/AI-Infra-Auto-Driven-SKILLS?style=social)](https://github.com/BBuf/AI-Infra-Auto-Driven-SKILLS/forks)
 [![Last commit](https://img.shields.io/github/last-commit/BBuf/AI-Infra-Auto-Driven-SKILLS?style=flat-square)](https://github.com/BBuf/AI-Infra-Auto-Driven-SKILLS/commits/main)
 [![Core skills](https://img.shields.io/badge/core_skills-11-2f80ed?style=flat-square)](#core-skills)
-[![PR histories](https://img.shields.io/badge/pr_histories-66-2ea44f?style=flat-square)](#model-pr-history-catalog)
+[![PR histories](https://img.shields.io/badge/pr_histories-72-2ea44f?style=flat-square)](#model-pr-history-catalog)
 [![KDA-Pilot](https://img.shields.io/badge/sibling-KDA--Pilot-ff7b72?style=flat-square)](https://github.com/BBuf/KDA-Pilot)
 
 </div>
@@ -51,7 +51,7 @@ find it.
 | [`llm-pipeline-analysis`](skills/llm-pipeline-analysis/) | You need forward-pass, layer, and kernel-level timing from a torch profiler trace, including anchor boundaries and Perfetto ranges. |
 | [`model-compute-simulation`](skills/model-compute-simulation/) | You need operator shapes, FLOPs, MFU estimates, kernel-to-op mapping, or parallelism what-if analysis for an LLM serving shape. |
 | [`sglang-model-day0-support`](skills/model-optimization/sglang-model-day0-support/) | You need to turn a new SGLang model architecture into a public Day-0 PR DAG, parallel/kernel adaptation plan, seven-gate validation matrix, release lock, and sanitized evidence bundle. |
-| [`sglang-humanize-review`](skills/sglang-humanize-review/) | You need SGLang code-review findings grounded in full human PR review episodes from project start through the latest refresh (June 2026), including inline code context, top-level discussion, review summaries, and multi-round replies. Every review opens with a PR comprehension pass — a change summary plus a Mermaid execution flowchart with the diff's modified steps marked — so the reviewer sees how the PR runs before the findings. |
+| [`sglang-humanize-review`](skills/sglang-humanize-review/) | You need SGLang code-review findings grounded in full human PR review episodes from project start through the latest corpus refresh (collected through 2026-07-27), including inline code context, top-level discussion, review summaries, and multi-round replies. Every review opens with a PR comprehension pass — a change summary plus a Mermaid execution flowchart with the diff's modified steps marked — so the reviewer sees how the PR runs before the findings. |
 | [`sglang-sota-humanize-loop`](skills/sglang-sota-humanize-loop/) | You want one model-level Humanize RLCR loop that owns SGLang gap decisions against a selected comparison framework set, profiler triage, required layer-pipeline deep dives, SGLang patches, optional `ncu-report-skill` evidence, and real-model revalidation after the fixed fair benchmark. |
 | [`vllm-sota-humanize-loop`](skills/vllm-sota-humanize-loop/) | You want one model-level Humanize RLCR loop that owns gap decisions, profiler triage, required layer-pipeline deep dives, vLLM patches, optional `ncu-report-skill` evidence, and real-model revalidation after the fixed fair benchmark. |
 | [`sglang-prod-incident-triage`](skills/sglang-prod-incident-triage/) | You need to turn queue growth, timeouts, wrong outputs, crashes, or distributed stalls into a replay and next debug step. |
@@ -77,15 +77,15 @@ Do not consider TensorRT-LLM or TokenSpeed; record them as user-excluded.
 
 The model optimization layer is now one knowledge base:
 [`model-pr-optimization-history`](model-pr-optimization-history/). It contains
-66 PR-driven history dossiers and a small query helper. These are not
+72 PR-driven history dossiers and a small query helper. These are not
 per-model runbook skills; they preserve diff-backed model evolution records for
 SGLang, vLLM, TensorRT-LLM, and TokenSpeed so SOTA loops can read prior source
 and PR evidence before patching.
 
 | Framework | PR histories |
 | --- | ---: |
-| [SGLang](model-pr-optimization-history/sglang/) | 31 |
-| [vLLM](model-pr-optimization-history/vllm/) | 31 |
+| [SGLang](model-pr-optimization-history/sglang/) | 35 |
+| [vLLM](model-pr-optimization-history/vllm/) | 33 |
 | [TensorRT-LLM](model-pr-optimization-history/tensorrt_llm/) | 2 |
 | [TokenSpeed](model-pr-optimization-history/tokenspeed/) | 2 |
 
@@ -93,8 +93,8 @@ Covered families include:
 
 ```text
 DeepSeek V3/R1/V3.1/V3.2/V4, Qwen3, Qwen3-Coder, Qwen3-Next,
-Qwen3.5/Qwen3.6, Qwen VLM/Omni/ASR, GLM 4.5/4.6/4.7/5,
-Kimi, MiniMax, Llama 4, Mistral Small 4, Mixtral, Nemotron,
+Qwen3.5/Qwen3.6/Qwen3.8, Qwen VLM/Omni/ASR, GLM 4.5/4.6/4.7/5,
+Kimi K2/K2.5/K3, MiniMax, Llama 4, Mistral Small 4, Mixtral, Nemotron,
 Gemma, Ernie 4.5, Intern-S1, InternVL, Hunyuan, MOSS-VL,
 GPT-OSS, Step 3.5, Mimo, and model-specific MoE/quantization paths.
 ```
@@ -158,6 +158,10 @@ The repo is opinionated about evidence because performance work gets noisy fast.
 - Root-level [`update_prompt.md`](update_prompt.md) captures the full refresh
   and validation workflow for updating this repo again without relying on
   memory from a previous run.
+- The 2026-08-23 refresh updated live source heads, public release notes,
+  cookbook translations, and PR-history indexes. It did **not** recapture B200
+  serving/profiler smoke (assigned host SSH closed) and did **not** recrawl
+  the SGLang human-review corpus past 2026-07-27.
 
 ## Install
 
