@@ -1,6 +1,6 @@
 ---
 name: sglang-humanize-review
-description: "Perform SGLang code review in the style of human maintainers by consulting the full non-agent PR review episode corpus from project start through the latest refresh (July 2026), including inline review threads, top-level PR comments, review submissions, original multilingual text, and multi-round discussions. Use when reviewing SGLang PRs, diffs, patches, or local changes for correctness, tests, performance, GPU/runtime risks, API compatibility, and maintainability."
+description: "Perform SGLang code review in the style of human maintainers by consulting the full non-agent PR review episode corpus from project start through 2026-07-27, including inline review threads, top-level PR comments, review submissions, original multilingual text, and multi-round discussions. Use when reviewing SGLang PRs, diffs, patches, or local changes for correctness, tests, performance, GPU/runtime risks, API compatibility, and maintainability."
 ---
 
 # SGLang Humanize Review
@@ -16,8 +16,10 @@ reviewer can see how the diff actually runs before reading any findings. See
 [PR Comprehension Diagram](#pr-comprehension-diagram).
 
 The bundled corpus is collected from `sgl-project/sglang` PRs from the first
-public PR through the latest refresh (July 2026), excluding PRs authored by bots
-or obvious coding-agent accounts. The collector paginates every PR's full
+public PR through `2026-07-27`, excluding PRs authored by bots
+or obvious coding-agent accounts. Public framework knowledge around this
+skill was refreshed on 2026-08-23; the gzip corpus itself was not recrawled
+in that pass, so reviews after 2026-07-27 must be read live from GitHub. The collector paginates every PR's full
 conversation and review history, so long multi-round discussions are captured in
 their entirety rather than truncated at the first 100 events. It is organized as
 review episodes, not just individual comments:
